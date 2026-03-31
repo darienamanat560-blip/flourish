@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+* { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+body {
+  background: #000;
+  margin: 0;
+  font-family: 'JetBrains Mono', monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+input:focus, textarea:focus, select:focus { outline: none; }
+input::placeholder, textarea::placeholder { color: #3f3f46; }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #000; }
+::-webkit-scrollbar-thumb { background: #1e1e22; border-radius: 3px; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  background: #18181b;
+  height: 3px;
+  border-radius: 2px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #2dd4bf;
+  cursor: pointer;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Card system */
+.c {
+  border: 1px solid #1e1e22;
+  background: linear-gradient(180deg, #0c0c0e 0%, #09090b 100%);
+  transition: all 0.2s ease;
+}
+.c:hover {
+  border-color: #2a2a2f;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.c:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Action buttons */
+.ab {
+  border: 1px solid #1e1e22;
+  background: linear-gradient(180deg, #111114 0%, #0c0c0e 100%);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.ab:hover {
+  border-color: rgba(45,212,191,0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(45,212,191,0.06) inset;
+}
+.ab:active {
+  transform: translateY(0);
+}
+.ab .gl {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(45,212,191,0.15), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.ab:hover .gl { opacity: 1; }
+
+/* Quick log button */
+.ql {
+  border: 1px solid #1e1e22;
+  background: #0c0c0e;
+  padding: 6px 10px;
+  color: #2dd4bf;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.05em;
+}
+.ql:hover {
+  background: rgba(45,212,191,0.06);
+  border-color: rgba(45,212,191,0.2);
+}
+
+/* Safe area padding for iPhone notch */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-top { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
