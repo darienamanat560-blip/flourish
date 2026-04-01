@@ -57,6 +57,27 @@ const CDB = [
   { name:"Thymosin Alpha-1", unit:"mg", cat:"recovery", dose:1.6, freq:"2x/week", desc:"Immune modulator. Reduces inflammation, supports immune function.", stacks:["BPC-157"] },
   { name:"Beta-Alanine", unit:"g", cat:"supplement", dose:3.2, freq:"daily", desc:"Buffers lactic acid. Improves muscular endurance.", stacks:["Creatine Monohydrate","Citrulline Malate"] },
   { name:"Citrulline Malate", unit:"g", cat:"supplement", dose:6, freq:"daily", desc:"Nitric oxide precursor. Pumps, endurance, reduced fatigue.", stacks:["Beta-Alanine","Creatine Monohydrate"] },
+  // ── User-added / specialty compounds ──
+  { name:"Testosterone Enanthate", unit:"mg", cat:"anabolic", dose:350, freq:"weekly", desc:"Long-ester injectable testosterone (7-day half-life). Gold standard for TRT and cycle base. Dose split EOD or E3.5D minimizes peaks.", stacks:["HCG","Aromasin","Anavar","HGH","BPC-157"] },
+  { name:"Pregnenolone", unit:"mg", cat:"longevity", dose:25, freq:"daily", desc:"Neurosteroid precursor to all steroid hormones. Improves cognition, mood, and balances cortisol. Stacked with DHEA for synergy.", stacks:["DHEA","NAD+","Testosterone"] },
+  { name:"Andractim (DHT Gel)", unit:"%", cat:"anabolic", dose:0.02, freq:"daily", desc:"Topical dihydrotestosterone gel. Enhances androgenic effects locally — libido, body comp, scalp/beard application.", stacks:["Testosterone","Finasteride"] },
+  { name:"Topical Finasteride", unit:"%", cat:"ancillary", dose:0.02, freq:"daily", desc:"5-alpha reductase inhibitor applied topically to scalp. Blocks DHT conversion at hair follicles with minimal systemic absorption. Hair loss prevention.", stacks:["Testosterone Enanthate","Andractim (DHT Gel)"] },
+  { name:"L-Carnitine L-Tartrate", unit:"g", cat:"metabolic", dose:4, freq:"daily", desc:"Most bioavailable carnitine form. Enhances fat oxidation, androgen receptor upregulation, reduces exercise-induced muscle damage. Take with carbs.", stacks:["Testosterone Enanthate","Creatine Monohydrate","Omega-3"] },
+  { name:"Exemestane (Aromasin)", unit:"mg", cat:"ancillary", dose:12.5, freq:"E3D", desc:"Suicidal (irreversible) aromatase inhibitor. Prevents estrogen rebound. Preferred AI on testosterone cycles.", stacks:["Testosterone","Testosterone Enanthate","HCG"] },
+  { name:"Anastrozole (Arimidex)", unit:"mg", cat:"ancillary", dose:0.25, freq:"EOD", desc:"Reversible aromatase inhibitor. Lowers estradiol on cycle. Lower dose preferred to avoid crushing E2.", stacks:["Testosterone","Testosterone Enanthate"] },
+  { name:"Telmisartan", unit:"mg", cat:"longevity", dose:20, freq:"daily", desc:"ARB / PPAR-delta agonist. Cardioprotective, reduces blood pressure, improves insulin sensitivity. Common on TRT/cycle.", stacks:["Testosterone Enanthate","Omega-3"] },
+  { name:"Dutasteride", unit:"mg", cat:"ancillary", dose:0.5, freq:"daily", desc:"Dual 5-AR inhibitor (types I and II). More complete DHT suppression than finasteride. Used for hair retention on cycle.", stacks:["Testosterone Enanthate","Topical Finasteride"] },
+  { name:"HCG (Human Chorionic Gonadotropin)", unit:"IU", cat:"ancillary", dose:500, freq:"2x/week", desc:"Mimics LH to maintain testicular size and function during TRT/cycle. Prevents testicular atrophy.", stacks:["Testosterone Enanthate","Aromasin","Clomid"] },
+  { name:"IGF-1 LR3", unit:"mcg", cat:"growth", dose:50, freq:"daily", desc:"Long-acting IGF-1 analog. Muscle hyperplasia (new cells), nutrient partitioning, enhanced recovery. Taken post-workout.", stacks:["HGH","BPC-157","Testosterone Enanthate"] },
+  { name:"AOD-9604", unit:"mcg", cat:"metabolic", dose:300, freq:"daily", desc:"HGH fragment (176-191). Stimulates fat oxidation without insulin resistance or IGF-1 side effects of full HGH.", stacks:["CJC-1295/Ipamorelin","BPC-157"] },
+  { name:"Sermorelin", unit:"mcg", cat:"growth", dose:300, freq:"daily", desc:"GHRH analog. Stimulates natural pulsatile GH release. Gentler alternative to HGH injections.", stacks:["Ipamorelin","CJC-1295/Ipamorelin"] },
+  { name:"Stanozolol (Winstrol)", unit:"mg", cat:"anabolic", dose:25, freq:"daily", desc:"DHT-derived oral/injectable. Increases strength and vascularity without water retention. Drying compound.", stacks:["Testosterone Enanthate","Anavar"] },
+  { name:"Tamoxifen (Nolvadex)", unit:"mg", cat:"ancillary", dose:20, freq:"daily", desc:"SERM that blocks estrogen at breast tissue. PCT staple. Also used to treat/prevent gyno on cycle.", stacks:["Clomid","HCG","Testosterone Enanthate"] },
+  { name:"Kisspeptin-10", unit:"mcg", cat:"growth", dose:100, freq:"daily", desc:"Neuropeptide that triggers GnRH/LH/FSH release. Used for hormonal recovery and fertility support.", stacks:["HCG","Clomid","Enclomiphene"] },
+  { name:"CoQ10 (Ubiquinol)", unit:"mg", cat:"longevity", dose:200, freq:"daily", desc:"Mitochondrial electron chain cofactor. Improves energy production, cardioprotective, antioxidant. Important on statin-adjacent protocols.", stacks:["NAD+","Omega-3","SS-31"] },
+  { name:"TUDCA", unit:"mg", cat:"longevity", dose:500, freq:"daily", desc:"Bile acid with potent liver-protective and neuroprotective effects. Essential support compound on oral anabolic cycles.", stacks:["NAD+","Testosterone Enanthate"] },
+  { name:"Milk Thistle (Silymarin)", unit:"mg", cat:"supplement", dose:500, freq:"daily", desc:"Liver support. Antioxidant and anti-inflammatory for hepatoprotection on oral compound cycles.", stacks:["TUDCA","NAD+"] },
+  { name:"Taurine", unit:"g", cat:"supplement", dose:3, freq:"daily", desc:"Amino acid for cardiovascular health, muscle cramping prevention (esp. on diuretics), bile salt conjugation.", stacks:["Creatine Monohydrate","Magnesium Glycinate"] },
 ];
 
 const CATS = ["growth","metabolic","recovery","anabolic","ancillary","SARM","nootropic","longevity","supplement","peptide","vitamin","other"];
@@ -72,10 +93,48 @@ const LS = {display:"block",fontSize:10,fontWeight:600,color:"#52525b",textTrans
 const IS = {width:"100%",height:42,background:"rgba(255,255,255,0.02)",border:"1px solid #1e1e22",padding:"0 14px",color:"#e4e4e7",fontSize:13,fontFamily:"'JetBrains Mono',monospace",transition:"border-color .2s",outline:"none",boxSizing:"border-box"};
 const HS = {fontSize:22,fontWeight:700,color:"#fff",fontFamily:"'Inter',sans-serif",margin:0,letterSpacing:"-0.02em"};
 
-async function api(path, opts={}) {
-  const r = await fetch(path, {headers:{"Content-Type":"application/json"},...opts,body:opts.body?JSON.stringify(opts.body):undefined});
-  if (!r.ok) throw new Error("API "+path+" -> "+r.status);
-  return r.json();
+async function api(path, opts={}, timeoutMs=28000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(path, {
+      headers:{"Content-Type":"application/json"},
+      ...opts,
+      signal: ctrl.signal,
+      body:opts.body?JSON.stringify(opts.body):undefined
+    });
+    clearTimeout(timer);
+    if (!r.ok) {
+      const errText = await r.text().catch(()=>"");
+      throw new Error("API "+path+" -> "+r.status+": "+errText.slice(0,200));
+    }
+    return r.json();
+  } catch(e) {
+    clearTimeout(timer);
+    if (e.name === "AbortError") throw new Error("Request timed out. Try again.");
+    throw e;
+  }
+}
+
+// Robustly extract JSON from AI response that may have extra text around it
+function extractJSON(text) {
+  if (!text) throw new Error("Empty response");
+  // Try direct parse first
+  const clean = text.replace(/```json|```/g,"").trim();
+  try { return JSON.parse(clean); } catch {}
+  // Find first { ... } block
+  const start = clean.indexOf("{");
+  const end = clean.lastIndexOf("}");
+  if (start !== -1 && end > start) {
+    try { return JSON.parse(clean.slice(start, end+1)); } catch {}
+  }
+  // Find first [ ... ] block  
+  const as = clean.indexOf("[");
+  const ae = clean.lastIndexOf("]");
+  if (as !== -1 && ae > as) {
+    try { return JSON.parse(clean.slice(as, ae+1)); } catch {}
+  }
+  throw new Error("Could not parse AI response as JSON: " + clean.slice(0,100));
 }
 
 function CursorGlow() {
@@ -166,21 +225,35 @@ function AC({value,onChange,onSelect,placeholder="Search compounds, peptides, su
   const [res,setRes]=useState([]);
   const [aiRes,setAiRes]=useState(null);
   const [aiLoading,setAiLoading]=useState(false);
+  const [userLib,setUserLib]=useState([]);
   const ref=useRef(null);
   const timer=useRef(null);
 
+  // Load user's personal compound library on mount
+  useEffect(()=>{
+    fetch("/api/compounds/research").then(r=>r.ok?r.json():[]).then(d=>{
+      if(Array.isArray(d)) setUserLib(d.map(c=>({
+        name:c.name, dose:null, unit:null, freq:c.timing||"daily",
+        cat:c.category||"other", desc:c.summary||c.mechanism||"",
+        stacks:c.synergies||[], _learned:true
+      })));
+    }).catch(()=>{});
+  },[]);
+
   useEffect(()=>{
     if(!value){setOpen(false);setRes([]);setAiRes(null);return;}
-    const local=CDB.filter(c=>c.name.toLowerCase().includes(value.toLowerCase())).slice(0,7);
+    // Merge CDB + user learned library, deduplicate by name
+    const allKnown = [...CDB, ...userLib.filter(u=>!CDB.some(c=>c.name.toLowerCase()===u.name.toLowerCase()))];
+    const local=allKnown.filter(c=>c.name.toLowerCase().includes(value.toLowerCase())).slice(0,7);
     setRes(local);setOpen(true);
     clearTimeout(timer.current);
     if(value.length>=2){
       timer.current=setTimeout(async()=>{
         setAiLoading(true);
         try{
-          const d=await api("/api/ai",{method:"POST",body:{model:"claude-sonnet-4-6",max_tokens:250,messages:[{role:"user",content:`User typed "${value}" searching for a compound/supplement/peptide. Return ONLY JSON (no markdown, no explanation): {"name":"full name","dose":number,"unit":"mg or mcg or IU or g","freq":"daily or weekly etc","cat":"recovery or growth or anabolic or metabolic or ancillary or SARM or nootropic or longevity or supplement","desc":"what it does in 1 sentence"}`}]}});
-          const txt=(d.content||[]).map(i=>i.text||"").join("").replace(/\`\`\`json|\`\`\`/g,"").trim();
-          const parsed=JSON.parse(txt);
+          const d=await api("/api/ai",{method:"POST",body:{model:"claude-sonnet-4-6",max_tokens:250,messages:[{role:"user",content:`User typed "${value}" in a compound/supplement/peptide search. Respond with ONLY a JSON object (no markdown, no explanation, start with {): {"name":"full compound name","dose":number,"unit":"mg or mcg or IU or g","freq":"daily or weekly etc","cat":"recovery or growth or anabolic or metabolic or ancillary or SARM or nootropic or longevity or supplement","desc":"one sentence what it does"}`}]}},8000);
+          const txt=(d.content||[]).map(i=>i.text||"").join("");
+          const parsed=extractJSON(txt);
           const already=local.some(l=>l.name.toLowerCase()===parsed.name.toLowerCase());
           setAiRes(already?null:{...parsed,_ai:true});
         }catch{setAiRes(null);}
@@ -213,6 +286,7 @@ function AC({value,onChange,onSelect,placeholder="Search compounds, peptides, su
                 <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
                   <span style={{fontSize:13,fontWeight:600,color:"#e4e4e7",fontFamily:"'Inter',sans-serif"}}>{r.name}</span>
                   {r._ai&&<span style={{fontSize:8,padding:"1px 5px",background:"rgba(45,212,191,0.08)",color:"#2dd4bf",border:"1px solid rgba(45,212,191,0.15)",letterSpacing:"0.08em"}}>AI</span>}
+                  {r._learned&&<span style={{fontSize:8,padding:"1px 5px",background:"rgba(139,92,246,0.08)",color:"#a78bfa",border:"1px solid rgba(139,92,246,0.15)",letterSpacing:"0.08em"}}>saved</span>}
                 </div>
                 <div style={{fontSize:10,color:"#3f3f46",fontFamily:"'JetBrains Mono',monospace"}}>{r.dose} {r.unit} · {r.freq}</div>
                 {r.desc&&<div style={{fontSize:10,color:"#52525b",marginTop:4,lineHeight:1.5}}>{r.desc}</div>}
@@ -260,11 +334,20 @@ function ProtocolBuilder({onComplete,userName}) {
   const generate=async()=>{
     setGenerating(true);setError("");
     try{
-      const d=await api("/api/ai",{method:"POST",body:{model:"claude-sonnet-4-6",max_tokens:1500,messages:[{role:"user",content:buildPrompt()+`\n\nReturn ONLY valid JSON (no markdown fences, no explanation):\n{"cycleName":"descriptive name","summary":"2-3 sentences on protocol and outcomes","compounds":[{"name":"","dose":0,"unit":"mg/mcg/IU/g","freq":"daily/weekly/EOD/etc","cat":"category","desc":"what it does","reason":"why for this user","timing":"when to take"}]}`}]}});
-      const txt=(d.content||[]).map(i=>i.text||"").join("").replace(/\`\`\`json|\`\`\`/g,"").trim();
-      const parsed=JSON.parse(txt);
+      const d=await api("/api/ai",{method:"POST",body:{model:"claude-sonnet-4-6",max_tokens:1800,messages:[{role:"user",content:buildPrompt()+`
+
+Respond with ONLY a JSON object. No explanation, no markdown, no code fences. Start your response with { and end with }.
+
+Required format:
+{"cycleName":"descriptive name","summary":"2-3 sentences on protocol and expected outcomes","compounds":[{"name":"compound name","dose":0,"unit":"mg/mcg/IU/g","freq":"daily/weekly/EOD/2x/week/etc","cat":"anabolic/metabolic/recovery/ancillary/growth/nootropic/longevity/supplement","desc":"what this compound does","reason":"why included for this specific user","timing":"when to take, e.g. morning, pre-workout, before bed"}]}`}]}},28000);
+      const txt=(d.content||[]).map(i=>i.text||"").join("");
+      const parsed=extractJSON(txt);
+      if(!parsed.compounds||!Array.isArray(parsed.compounds))throw new Error("No compounds array in response");
       setProtocol(parsed);setProtocolName(parsed.cycleName||"My Protocol");setStep(99);
-    }catch(e){setError("Generation failed. Please try again.");console.error(e);}
+    }catch(e){
+      console.error("generate error:",e);
+      setError(e.message||"Generation failed. Check your connection and try again.");
+    }
     setGenerating(false);
   };
 
@@ -322,7 +405,22 @@ function ProtocolBuilder({onComplete,userName}) {
   if(generating)return(
     <div style={{...bg,flexDirection:"column",gap:20}}><CursorGlow/>
     <div style={{width:28,height:28,border:"1.5px solid #1e1e22",borderTopColor:"#2dd4bf",borderRadius:"50%",animation:"spin .8s linear infinite"}}/>
-    <div style={{textAlign:"center"}}><p style={{fontSize:13,color:"#fff",fontFamily:"'Inter',sans-serif",margin:"0 0 4px"}}>Building your protocol...</p><p style={{fontSize:11,color:"#3f3f46",margin:0}}>Usually 10-20 seconds</p></div>
+    <div style={{textAlign:"center"}}>
+      <p style={{fontSize:13,color:"#fff",fontFamily:"'Inter',sans-serif",margin:"0 0 4px"}}>Building your protocol...</p>
+      <p style={{fontSize:11,color:"#3f3f46",margin:0}}>Usually 10–20 seconds</p>
+    </div>
+    </div>
+  );
+
+  if(error&&!generating&&!protocol)return(
+    <div style={{...bg,flexDirection:"column",gap:16}}><CursorGlow/>
+    <div style={{textAlign:"center",maxWidth:360}}>
+      <div style={{fontSize:32,marginBottom:16}}>⚠</div>
+      <p style={{fontSize:14,color:"#fff",fontFamily:"'Inter',sans-serif",margin:"0 0 8px",fontWeight:600}}>Generation failed</p>
+      <p style={{fontSize:12,color:"#52525b",margin:"0 0 24px",lineHeight:1.6,wordBreak:"break-word"}}>{error}</p>
+      <button onClick={()=>{setError("");generate();}} style={{width:"100%",height:44,background:"#2dd4bf",color:"#000",border:"none",fontSize:11,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",cursor:"pointer",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8}}>Try Again</button>
+      <button onClick={()=>{setError("");setStep(path==="guided"?3:2);}} style={{width:"100%",height:36,background:"transparent",border:"1px solid #1e1e22",color:"#3f3f46",fontSize:10,fontFamily:"'JetBrains Mono',monospace",cursor:"pointer"}}>Back</button>
+    </div>
     </div>
   );
 
@@ -450,10 +548,22 @@ function StackView({compounds,cycleId,onAdd,onEdit,onRemove}) {
     if(!fname||!fdose)return;
     setSaving(true);
     const tit=ftit.filter(t=>t.dose!==""&&t.dose!==undefined).map(t=>({week:Number(t.week),dose:Number(t.dose)}));
-    const payload={name:fname,dose:Number(fdose),unit:funit,frequency:ffreq,status:"active",category:fcat,titration:tit,notes:aiDesc||null};
+    // Look up desc from CDB or use aiDesc
+    const cdbEntry = CDB.find(x=>x.name.toLowerCase()===fname.toLowerCase());
+    const notes = aiDesc || cdbEntry?.desc || null;
+    const payload={name:fname,dose:Number(fdose),unit:funit,frequency:ffreq,status:"active",category:fcat,titration:tit,notes};
     try{
-      if(modal==="add")await onAdd(payload);
-      else if(editTarget)await onEdit(editTarget.id,payload);
+      if(modal==="add"){
+        await onAdd(payload);
+        // Fire-and-forget AI research on new compound
+        // Check if it's already in CDB first
+        const inCDB = CDB.some(x=>x.name.toLowerCase()===fname.toLowerCase());
+        if(!inCDB){
+          fetch("/api/compounds/research",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:fname,dose:Number(fdose),unit:funit,freq:ffreq,cat:fcat})}).catch(()=>{});
+        }
+      } else if(editTarget){
+        await onEdit(editTarget.id,payload);
+      }
     }catch(e){console.error("save:",e);}
     setSaving(false);setModal(null);
   };
@@ -664,6 +774,237 @@ function HistoryView({logs,compounds,onDelete,training}) {
   );
 }
 
+
+// ══════════════════════════════
+// BLOODWORK / LABS VIEW
+// ══════════════════════════════
+function BloodworkView({ userId }) {
+  const [panels, setPanels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({ date:"", lab:"" });
+  const [markers, setMarkers] = useState([
+    { name:"Total Testosterone", value:"", unit:"ng/dL", ref:"264-916" },
+    { name:"Free Testosterone", value:"", unit:"pg/mL", ref:"9.3-26.5" },
+    { name:"Estradiol (E2)", value:"", unit:"pg/mL", ref:"<42" },
+    { name:"SHBG", value:"", unit:"nmol/L", ref:"16.5-55.9" },
+    { name:"LH", value:"", unit:"mIU/mL", ref:"1.7-8.6" },
+    { name:"FSH", value:"", unit:"mIU/mL", ref:"1.5-12.4" },
+    { name:"IGF-1", value:"", unit:"ng/mL", ref:"88-246" },
+    { name:"Hematocrit", value:"", unit:"%", ref:"38.3-48.6" },
+    { name:"Hemoglobin", value:"", unit:"g/dL", ref:"13.2-17.1" },
+    { name:"PSA", value:"", unit:"ng/mL", ref:"<4.0" },
+    { name:"ALT", value:"", unit:"U/L", ref:"7-56" },
+    { name:"AST", value:"", unit:"U/L", ref:"10-40" },
+    { name:"Total Cholesterol", value:"", unit:"mg/dL", ref:"<200" },
+    { name:"HDL", value:"", unit:"mg/dL", ref:">40" },
+    { name:"LDL", value:"", unit:"mg/dL", ref:"<100" },
+    { name:"Triglycerides", value:"", unit:"mg/dL", ref:"<150" },
+    { name:"Glucose (fasting)", value:"", unit:"mg/dL", ref:"70-99" },
+    { name:"HbA1c", value:"", unit:"%", ref:"<5.7" },
+    { name:"Cortisol (AM)", value:"", unit:"mcg/dL", ref:"6.2-19.4" },
+    { name:"DHEA-S", value:"", unit:"mcg/dL", ref:"80-560" },
+    { name:"Vitamin D (25-OH)", value:"", unit:"ng/mL", ref:"30-100" },
+    { name:"TSH", value:"", unit:"mIU/L", ref:"0.4-4.5" },
+  ]);
+  const [customMarker, setCustomMarker] = useState({ name:"", value:"", unit:"", ref:"" });
+  const [saving, setSaving] = useState(false);
+  const [aiSummary, setAiSummary] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+
+  useEffect(() => { loadPanels(); }, []);
+
+  const loadPanels = async () => {
+    setLoading(true);
+    try {
+      const data = await api("/api/bloodwork");
+      setPanels(Array.isArray(data) ? data : []);
+    } catch { setPanels([]); }
+    setLoading(false);
+  };
+
+  const savePanel = async () => {
+    setSaving(true);
+    const filled = markers.filter(m => m.value !== "" && m.value !== null);
+    const custom = customMarker.name && customMarker.value ? [customMarker] : [];
+    const allMarkers = [...filled, ...custom];
+    const markerObj = {};
+    allMarkers.forEach(m => { markerObj[m.name] = { value: m.value, unit: m.unit, ref: m.ref }; });
+    try {
+      const saved = await api("/api/bloodwork", { method:"POST", body:{ date:form.date||new Date().toISOString().split("T")[0], lab_name:form.lab||null, markers:markerObj, ai_summary:aiSummary||null } });
+      setPanels(p => [saved, ...p]);
+      setModal(false);
+      setForm({ date:"", lab:"" });
+      setAiSummary("");
+    } catch(e) { console.error("save panel:", e); }
+    setSaving(false);
+  };
+
+  const analyzeWithAI = async () => {
+    setAiLoading(true);
+    const filled = markers.filter(m => m.value !== "");
+    if (!filled.length) { setAiLoading(false); return; }
+    const markerText = filled.map(m => `${m.name}: ${m.value} ${m.unit} (ref: ${m.ref})`).join(", ");
+    try {
+      const d = await api("/api/ai", { method:"POST", body:{ model:"claude-sonnet-4-6", max_tokens:600, messages:[{ role:"user", content:`Analyze these blood panel results for someone tracking hormonal optimization and performance compounds. Be concise and clinical. Flag anything outside reference range. Format: **Summary**, **Key Findings**, **Flags** sections.
+
+Markers: ${markerText}` }] }});
+      setAiSummary((d.content||[]).map(i=>i.text||"").join(""));
+    } catch(e) { setAiSummary("Analysis unavailable."); }
+    setAiLoading(false);
+  };
+
+  const isOutOfRange = (m) => {
+    if (!m.value || !m.ref) return false;
+    const val = parseFloat(m.value);
+    if (isNaN(val)) return false;
+    if (m.ref.startsWith("<")) return val >= parseFloat(m.ref.slice(1));
+    if (m.ref.startsWith(">")) return val <= parseFloat(m.ref.slice(1));
+    const parts = m.ref.split("-");
+    if (parts.length === 2) return val < parseFloat(parts[0]) || val > parseFloat(parts[1]);
+    return false;
+  };
+
+  const flagged = markers.filter(m => m.value && isOutOfRange(m));
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
+        <div>
+          <h1 style={HS}>Labs</h1>
+          <p style={{ fontSize:11, color:"#3f3f46", marginTop:4 }}>Blood panels, hormone markers, biomarkers</p>
+        </div>
+        <button onClick={()=>setModal(true)} style={{ height:36, padding:"0 16px", background:"transparent", border:"1px solid #1e1e22", color:"#52525b", fontSize:11, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", transition:"all .15s" }}
+          onMouseEnter={e=>{e.target.style.borderColor="#2dd4bf";e.target.style.color="#2dd4bf";}}
+          onMouseLeave={e=>{e.target.style.borderColor="#1e1e22";e.target.style.color="#52525b";}}>
+          + Log Panel
+        </button>
+      </div>
+
+      {loading && <div style={{ textAlign:"center", padding:40 }}><div style={{ width:20,height:20,border:"1.5px solid #1e1e22",borderTopColor:"#2dd4bf",borderRadius:"50%",margin:"0 auto",animation:"spin .8s linear infinite" }}/></div>}
+
+      {!loading && panels.length === 0 && (
+        <div style={{ border:"1px dashed #1e1e22", padding:"40px 24px", textAlign:"center" }}>
+          <p style={{ fontSize:13, color:"#27272a", margin:"0 0 8px" }}>No panels logged yet</p>
+          <p style={{ fontSize:11, color:"#1e1e22", margin:"0 0 20px" }}>Add blood work to track hormones, biomarkers, and health over time</p>
+          <button onClick={()=>setModal(true)} style={{ fontSize:11, color:"#2dd4bf", background:"transparent", border:"1px solid rgba(45,212,191,0.2)", padding:"8px 20px", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>+ Log your first panel</button>
+        </div>
+      )}
+
+      <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+        {panels.map(p => {
+          const mKeys = Object.keys(p.markers||{});
+          return (
+            <div key={p.id} className="c" style={{ padding:"16px 18px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{p.date}</div>
+                  {p.lab_name && <div style={{ fontSize:10, color:"#3f3f46", marginTop:1 }}>{p.lab_name}</div>}
+                </div>
+                <span style={{ fontSize:9, padding:"2px 8px", background:"rgba(45,212,191,0.06)", color:"#2dd4bf", border:"1px solid rgba(45,212,191,0.1)" }}>{mKeys.length} markers</span>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(140px, 1fr))", gap:6, marginBottom:p.ai_summary?12:0 }}>
+                {mKeys.slice(0,8).map(name => {
+                  const m = p.markers[name];
+                  const val = parseFloat(m.value);
+                  let flag = false;
+                  if (m.ref && !isNaN(val)) {
+                    if (m.ref.startsWith("<")) flag = val >= parseFloat(m.ref.slice(1));
+                    else if (m.ref.startsWith(">")) flag = val <= parseFloat(m.ref.slice(1));
+                    else { const pts = m.ref.split("-"); if(pts.length===2) flag = val<parseFloat(pts[0])||val>parseFloat(pts[1]); }
+                  }
+                  return (
+                    <div key={name} style={{ padding:"8px 10px", background:flag?"rgba(239,68,68,0.04)":"rgba(255,255,255,0.02)", border:`1px solid ${flag?"rgba(239,68,68,0.2)":"#1e1e22"}` }}>
+                      <div style={{ fontSize:9, color:"#3f3f46", marginBottom:2, textTransform:"uppercase", letterSpacing:"0.06em" }}>{name}</div>
+                      <div style={{ fontSize:13, fontWeight:600, color:flag?"#f87171":"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{m.value} <span style={{ fontSize:9, color:"#27272a", fontWeight:400 }}>{m.unit}</span></div>
+                      <div style={{ fontSize:9, color:"#27272a", marginTop:1 }}>ref {m.ref}</div>
+                    </div>
+                  );
+                })}
+                {mKeys.length > 8 && <div style={{ padding:"8px 10px", background:"rgba(255,255,255,0.01)", border:"1px dashed #1e1e22", display:"flex", alignItems:"center", justifyContent:"center" }}><span style={{ fontSize:10, color:"#27272a" }}>+{mKeys.length-8} more</span></div>}
+              </div>
+              {p.ai_summary && (
+                <div style={{ fontSize:11, color:"#52525b", lineHeight:1.7, padding:"12px 14px", background:"rgba(45,212,191,0.02)", border:"1px solid rgba(45,212,191,0.08)", marginTop:4 }}>
+                  {p.ai_summary.replace(/\*\*/g,"").split("\n").map((line,i)=><div key={i}>{line}</div>)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <Mod open={modal} onClose={()=>setModal(false)} title="Log Blood Panel">
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px", marginBottom:4 }}>
+          <div style={{ marginBottom:14 }}>
+            <label style={LS}>Date</label>
+            <input type="date" value={form.date} onChange={e=>setForm(p=>({...p,date:e.target.value}))} style={IS}
+              onFocus={e=>e.target.style.borderColor="#2dd4bf"} onBlur={e=>e.target.style.borderColor="#1e1e22"}/>
+          </div>
+          <div style={{ marginBottom:14 }}>
+            <label style={LS}>Lab Name (optional)</label>
+            <input placeholder="LabCorp, Quest..." value={form.lab} onChange={e=>setForm(p=>({...p,lab:e.target.value}))} style={IS}
+              onFocus={e=>e.target.style.borderColor="#2dd4bf"} onBlur={e=>e.target.style.borderColor="#1e1e22"}/>
+          </div>
+        </div>
+
+        {flagged.length > 0 && (
+          <div style={{ marginBottom:14, padding:"10px 12px", background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.15)" }}>
+            <div style={{ fontSize:10, color:"#f87171", fontWeight:600, marginBottom:4 }}>OUT OF RANGE</div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+              {flagged.map(m => <span key={m.name} style={{ fontSize:10, padding:"2px 8px", background:"rgba(239,68,68,0.1)", color:"#f87171", border:"1px solid rgba(239,68,68,0.2)" }}>{m.name}: {m.value}</span>)}
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginBottom:16 }}>
+          <div style={LS}>Markers</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 80px", gap:"4px 8px" }}>
+            {markers.map((m,i) => (
+              <div key={m.name} style={{ display:"contents" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid #0f0f11" }}>
+                  <span style={{ fontSize:11, color:m.value?isOutOfRange(m)?"#f87171":"#a1a1aa":"#3f3f46", flex:1, minWidth:0 }}>{m.name}</span>
+                  <span style={{ fontSize:9, color:"#27272a", flexShrink:0 }}>{m.unit}</span>
+                </div>
+                <input type="number" placeholder="—" value={m.value} onChange={e=>{ const v=[...markers]; v[i].value=e.target.value; setMarkers(v); }}
+                  style={{ ...IS, height:30, fontSize:12, textAlign:"right", borderColor:m.value&&isOutOfRange(m)?"rgba(239,68,68,0.4)":undefined, padding:"0 8px" }}
+                  onFocus={e=>e.target.style.borderColor="#2dd4bf"} onBlur={e=>e.target.style.borderColor=markers[i].value&&isOutOfRange(markers[i])?"rgba(239,68,68,0.4)":"#1e1e22"}/>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom:16 }}>
+          <div style={LS}>Add Custom Marker</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 70px 70px", gap:6 }}>
+            <input placeholder="Marker name" value={customMarker.name} onChange={e=>setCustomMarker(p=>({...p,name:e.target.value}))} style={{ ...IS, height:34, fontSize:12 }} onFocus={e=>e.target.style.borderColor="#2dd4bf"} onBlur={e=>e.target.style.borderColor="#1e1e22"}/>
+            <input placeholder="Value" value={customMarker.value} onChange={e=>setCustomMarker(p=>({...p,value:e.target.value}))} style={{ ...IS, height:34, fontSize:12 }} onFocus={e=>e.target.style.borderColor="#2dd4bf"} onBlur={e=>e.target.style.borderColor="#1e1e22"}/>
+            <input placeholder="Unit" value={customMarker.unit} onChange={e=>setCustomMarker(p=>({...p,unit:e.target.value}))} style={{ ...IS, height:34, fontSize:12 }} onFocus={e=>e.target.style.borderColor="#2dd4bf"} onBlur={e=>e.target.style.borderColor="#1e1e22"}/>
+          </div>
+        </div>
+
+        <button onClick={analyzeWithAI} disabled={aiLoading||!markers.some(m=>m.value)} style={{ width:"100%", height:38, background:"transparent", border:"1px solid rgba(45,212,191,0.2)", color:markers.some(m=>m.value)?"#2dd4bf":"#27272a", fontSize:11, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", marginBottom:8, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+          {aiLoading ? <><div style={{ width:12,height:12,border:"1.5px solid rgba(45,212,191,0.3)",borderTopColor:"#2dd4bf",borderRadius:"50%",animation:"spin .7s linear infinite" }}/> Analyzing...</> : "✦ Analyze with AI"}
+        </button>
+
+        {aiSummary && (
+          <div style={{ fontSize:11, color:"#52525b", lineHeight:1.7, padding:"12px 14px", background:"rgba(45,212,191,0.02)", border:"1px solid rgba(45,212,191,0.1)", marginBottom:14 }}>
+            {aiSummary.split("\n").map((line,i)=>{
+              const bold = /\*\*(.*?)\*\*/.test(line);
+              if(line.startsWith("**")&&line.endsWith("**"))return<div key={i} style={{color:"#fff",fontWeight:600,marginTop:i>0?8:0,marginBottom:2}}>{line.replace(/\*\*/g,"")}</div>;
+              if(bold)return<div key={i}>{line.split(/\*\*(.*?)\*\*/).map((p,j)=>j%2===1?<strong key={j} style={{color:"#e4e4e7"}}>{p}</strong>:<span key={j}>{p}</span>)}</div>;
+              return<div key={i}>{line||" "}</div>;
+            })}
+          </div>
+        )}
+
+        <button onClick={savePanel} disabled={saving} style={{ width:"100%", height:46, background:saving?"#111114":"#2dd4bf", color:saving?"#27272a":"#000", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:saving?"default":"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>
+          {saving ? "Saving..." : "Save Panel"}
+        </button>
+      </Mod>
+    </div>
+  );
+}
+
 export default function Flourish() {
   const {user,isLoaded}=useUser();
   const [tab,setTab]=useState("home");
@@ -678,6 +1019,22 @@ export default function Flourish() {
   const [activeId,setActiveId]=useState(null);
   const [loading,setLoading]=useState(true);
   const [onboarded,setOnboarded]=useState(false);
+  const [learnedData,setLearnedData]=useState(null);
+
+  // Fetch learned research when viewing a compound detail
+  useEffect(()=>{
+    if(!detailId)return;
+    const comp=cycles.flatMap(c=>c.compounds||[]).find(c=>c.id===detailId);
+    if(!comp)return;
+    const inCDB=CDB.some(c=>c.name.toLowerCase()===comp.name.toLowerCase());
+    if(!inCDB){
+      setLearnedData(null);
+      fetch("/api/compounds/research?name="+encodeURIComponent(comp.name))
+        .then(r=>r.ok?r.json():[]).then(d=>{ if(Array.isArray(d)&&d.length) setLearnedData(d[0]); }).catch(()=>{});
+    } else {
+      setLearnedData(null);
+    }
+  },[detailId]);
 
   const cy=cycles.find(c=>c.id===activeId)||cycles[0]||null;
   const comps=cy?.compounds||[];
@@ -743,9 +1100,9 @@ export default function Flourish() {
   const TABS=[
     {id:"home",label:"Home",d:"M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1"},
     {id:"log",label:"Log",d:"M12 4v16m8-8H4"},
-    {id:"train",label:"Train",d:"M13 10V3L4 14h7v7l9-11h-7z"},
     {id:"stack",label:"Stack",d:"M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"},
-    {id:"history",label:"History",d:"M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"},
+    {id:"train",label:"Train",d:"M13 10V3L4 14h7v7l9-11h-7z"},
+    {id:"bloodwork",label:"Labs",d:"M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"},
   ];
 
   if(!isLoaded||loading)return <SplashScreen/>;
@@ -758,6 +1115,7 @@ export default function Flourish() {
     const used=logs.filter(l=>l.doses?.[comp.id]);
     const total=used.reduce((s,l)=>s+(Number(l.doses[comp.id])||0),0);
     const sides=[...new Set(used.flatMap(l=>(l.side_effects||"").split(",").map(s=>s.trim()).filter(Boolean)))];
+    // learnedData fetched above in component scope
     return(
       <div style={{minHeight:"100vh",background:"#000",color:"#e4e4e7",fontFamily:"'JetBrains Mono',monospace"}}>
         <header style={{position:"sticky",top:0,zIndex:50,background:"rgba(0,0,0,0.94)",backdropFilter:"blur(16px)",borderBottom:"1px solid #1e1e22",padding:"14px 20px"}}>
@@ -765,13 +1123,48 @@ export default function Flourish() {
         </header>
         <div style={{maxWidth:560,margin:"0 auto",padding:"24px 20px 40px",animation:"fadeIn .2s ease"}}>
           <div style={{marginBottom:28}}><div style={{fontSize:10,color:"#2dd4bf",textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:6}}>{comp.category}</div><h1 style={{fontSize:28,fontWeight:700,color:"#fff",fontFamily:"'Inter',sans-serif",margin:"0 0 6px"}}>{comp.name}</h1><div style={{fontSize:12,color:"#3f3f46"}}>{comp.dose} {comp.unit} · {comp.frequency||comp.freq||"—"}</div></div>
-          {(comp.notes||db?.desc)&&<div style={{marginBottom:24}}><div style={LS}>What It Does</div><p style={{fontSize:13,color:"#71717a",lineHeight:1.8,margin:0}}>{comp.notes||db?.desc}</p></div>}
+          {(comp.notes||db?.desc||learnedData?.summary)&&(
+            <div style={{marginBottom:24}}>
+              <div style={LS}>What It Does</div>
+              <p style={{fontSize:13,color:"#71717a",lineHeight:1.8,margin:0}}>{comp.notes||db?.desc||learnedData?.summary}</p>
+              {learnedData?.mechanism&&!db&&<p style={{fontSize:12,color:"#52525b",lineHeight:1.8,margin:"8px 0 0"}}>{learnedData.mechanism}</p>}
+            </div>
+          )}
+          {learnedData?.primary_effects?.length>0&&!db&&(
+            <div style={{marginBottom:24}}>
+              <div style={LS}>Primary Effects</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                {learnedData.primary_effects.map((e,i)=><span key={i} style={{fontSize:10,padding:"4px 10px",background:"rgba(45,212,191,0.04)",color:"rgba(45,212,191,0.7)",border:"1px solid rgba(45,212,191,0.1)"}}>{e}</span>)}
+              </div>
+            </div>
+          )}
+          {learnedData?.side_effects?.length>0&&!db&&(
+            <div style={{marginBottom:24}}>
+              <div style={LS}>Potential Side Effects</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                {learnedData.side_effects.map((s,i)=><span key={i} style={{fontSize:10,padding:"4px 10px",background:"rgba(239,68,68,0.04)",color:"#f87171",border:"1px solid rgba(239,68,68,0.1)"}}>{s}</span>)}
+              </div>
+            </div>
+          )}
+          {learnedData?.timing&&!db&&(
+            <div style={{marginBottom:24}}>
+              <div style={LS}>Optimal Timing</div>
+              <p style={{fontSize:12,color:"#71717a",margin:0}}>{learnedData.timing}</p>
+            </div>
+          )}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:24}}>{[{v:used.length,l:"Log Entries"},{v:Math.round(total),l:`Total ${comp.unit}`},{v:comp.titration?.length||0,l:"Titration Steps"}].map((m,i)=>(
             <div key={i} className="c" style={{padding:"14px 16px",textAlign:"center"}}><div style={{fontSize:22,fontWeight:700,color:"#fff",fontFamily:"'Inter',sans-serif"}}>{m.v}</div><div style={{fontSize:9,color:"#3f3f46",marginTop:4}}>{m.l}</div></div>
           ))}</div>
           {comp.titration?.length>0&&(<div style={{marginBottom:24}}><div style={LS}>Titration</div><div className="c" style={{padding:16}}>{comp.titration.map((t,i)=>{const mx=Math.max(...comp.titration.map(x=>x.dose))||1;return(<div key={i} style={{display:"grid",gridTemplateColumns:"42px 1fr 52px",gap:8,alignItems:"center",padding:"5px 0"}}><span style={{fontSize:11,color:"#3f3f46"}}>Wk {t.week}</span><div style={{height:3,background:"#141416",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${(t.dose/mx)*100}%`,background:"#2dd4bf",opacity:0.5,borderRadius:2}}/></div><span style={{fontSize:12,fontWeight:600,color:"#52525b",textAlign:"right"}}>{t.dose} {comp.unit}</span></div>);})}</div></div>)}
           {sides.length>0&&<div style={{marginBottom:24}}><div style={LS}>Side Effects</div><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{sides.map((s,i)=><span key={i} style={{fontSize:9,padding:"4px 10px",background:"rgba(239,68,68,0.06)",color:"#f87171",border:"1px solid rgba(239,68,68,0.1)"}}>{s}</span>)}</div></div>}
-          {db?.stacks?.length>0&&<div><div style={LS}>Commonly Stacked With</div><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{db.stacks.map((n,i)=><span key={i} style={{fontSize:10,padding:"5px 12px",border:"1px solid #1e1e22",color:"#52525b",background:"rgba(255,255,255,0.015)"}}>{n}</span>)}</div></div>}
+          {(db?.stacks?.length>0||learnedData?.synergies?.length>0)&&(
+            <div>
+              <div style={LS}>Stacks Well With</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                {(db?.stacks||learnedData?.synergies||[]).map((n,i)=><span key={i} style={{fontSize:10,padding:"5px 12px",border:"1px solid #1e1e22",color:"#52525b",background:"rgba(255,255,255,0.015)"}}>{n}</span>)}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -809,7 +1202,7 @@ export default function Flourish() {
               ))}
             </div></div>)}
             <div style={{marginBottom:28}}><SL>Quick Actions</SL><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              {[{l:"Log Entry",icon:"M12 4v16m8-8H4",fn:()=>sw("log")},{l:"Get Insights",icon:"M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",fn:getInsights},{l:"Add Compound",icon:"M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z",fn:()=>sw("stack")},{l:"Log Training",icon:"M13 10V3L4 14h7v7l9-11h-7z",fn:()=>sw("train")}].map((b,i)=>(
+              {[{l:"Log Entry",icon:"M12 4v16m8-8H4",fn:()=>sw("log")},{l:"Get Insights",icon:"M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",fn:getInsights},{l:"Add Compound",icon:"M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z",fn:()=>sw("stack")},{l:"Log Labs",icon:"M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01",fn:()=>sw("bloodwork")}].map((b,i)=>(
                 <button key={i} onClick={b.fn} style={{padding:"18px 16px",textAlign:"left",background:"rgba(255,255,255,0.015)",border:"1px solid #1e1e22",cursor:"pointer",display:"flex",flexDirection:"column",gap:12,transition:"all .15s",fontFamily:"'JetBrains Mono',monospace"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#27272a";e.currentTarget.style.background="rgba(255,255,255,0.03)";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#1e1e22";e.currentTarget.style.background="rgba(255,255,255,0.015)";}}>
                   <svg width="16" height="16" fill="none" stroke="#2dd4bf" strokeWidth="1.5" viewBox="0 0 24 24" style={{opacity:.7}}><path strokeLinecap="round" strokeLinejoin="round" d={b.icon}/></svg>
                   <span style={{fontSize:11,fontWeight:600,color:"#a1a1aa",fontFamily:"'Inter',sans-serif"}}>{b.l}</span>
@@ -831,6 +1224,7 @@ export default function Flourish() {
         {tab==="log"&&<LogView compounds={comps} onSave={addLog}/>}
         {tab==="train"&&<TrainView training={training} onSaveTraining={saveTraining} compounds={comps}/>}
         {tab==="stack"&&<StackView compounds={comps} cycleId={cy?.id} onAdd={addCompound} onEdit={editCompound} onRemove={removeCompound}/>}
+        {tab==="bloodwork"&&<BloodworkView userId={user?.id}/>}
         {tab==="history"&&<HistoryView logs={logs} compounds={comps} onDelete={deleteLog} training={training}/>}
       </div>
 

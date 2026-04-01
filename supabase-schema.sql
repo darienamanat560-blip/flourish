@@ -178,3 +178,28 @@ $$;
 create trigger users_updated_at    before update on users    for each row execute function update_updated_at();
 create trigger cycles_updated_at   before update on cycles   for each row execute function update_updated_at();
 create trigger compounds_updated_at before update on compounds for each row execute function update_updated_at();
+
+-- ============================================================
+-- USER COMPOUND LIBRARY (AI-researched, user-built database)
+-- ============================================================
+create table if not exists user_compound_library (
+  id               uuid primary key default uuid_generate_v4(),
+  user_id          uuid references users(id) on delete cascade not null,
+  name             text not null,
+  aliases          text[] default '{}',
+  category         text,
+  mechanism        text,
+  primary_effects  text[] default '{}',
+  side_effects     text[] default '{}',
+  synergies        text[] default '{}',
+  timing           text,
+  summary          text,
+  dosing_notes     text,
+  created_at       timestamptz default now(),
+  updated_at       timestamptz default now(),
+  unique(user_id, name)
+);
+
+alter table user_compound_library enable row level security;
+create policy "library: own rows only" on user_compound_library for all using (user_id = get_user_id());
+create index on user_compound_library (user_id, name);
