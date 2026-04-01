@@ -51,6 +51,77 @@ const LIFTS = ["Bench Press","Squat","Deadlift","Overhead Press","Barbell Row","
 const CARDIO = ["Running","Cycling","Rowing","Swimming","Stairmaster"];
 
 function gid() { return "x" + Math.random().toString(36).slice(2, 9); }
+
+// ══════════════════════════════
+// CURSOR GLOW
+// ══════════════════════════════
+function CursorGlow() {
+  const glowRef = useRef(null);
+  const pos = useRef({ x: -400, y: -400 });
+  const current = useRef({ x: -400, y: -400 });
+  const raf = useRef(null);
+
+  useEffect(() => {
+    const onMove = (e) => { pos.current = { x: e.clientX, y: e.clientY }; };
+    window.addEventListener("mousemove", onMove);
+
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const tick = () => {
+      current.current.x = lerp(current.current.x, pos.current.x, 0.06);
+      current.current.y = lerp(current.current.y, pos.current.y, 0.06);
+      if (glowRef.current) {
+        glowRef.current.style.transform = `translate(${current.current.x}px, ${current.current.y}px)`;
+      }
+      raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
+
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      cancelAnimationFrame(raf.current);
+    };
+  }, []);
+
+  return (
+    <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:0, overflow:"hidden" }}>
+      <div ref={glowRef} style={{
+        position:"absolute",
+        top: -300, left: -300,
+        width: 600, height: 600,
+        borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(45,212,191,0.13) 0%, rgba(45,212,191,0.05) 35%, transparent 70%)",
+        willChange: "transform",
+      }}/>
+    </div>
+  );
+}
+
+// ══════════════════════════════
+// SPLASH / LOADING SCREEN
+// ══════════════════════════════
+function SplashScreen() {
+  return (
+    <div style={{ minHeight:"100vh", background:"#000", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:24, fontFamily:"'JetBrains Mono',monospace" }}>
+      <CursorGlow />
+      {/* Background grid */}
+      <div style={{ position:"fixed", inset:0, pointerEvents:"none", backgroundImage:"linear-gradient(rgba(45,212,191,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(45,212,191,0.025) 1px, transparent 1px)", backgroundSize:"48px 48px" }}/>
+      {/* Logo */}
+      <div style={{ display:"flex", alignItems:"center", gap:10, position:"relative" }}>
+        <svg width="14" height="20" viewBox="0 0 24 34" fill="none">
+          <rect x="6" y="1" width="12" height="5" rx="1" fill="#2dd4bf"/>
+          <path d="M7 6V9H17V6" stroke="#2dd4bf" strokeWidth="1.5" fill="none"/>
+          <path d="M7 9V28C7 30.76 9.24 33 12 33C14.76 33 17 30.76 17 28V9" stroke="#2dd4bf" strokeWidth="1.5" fill="none"/>
+          <path d="M8.5 18V28C8.5 29.93 10.07 31.5 12 31.5C13.93 31.5 15.5 29.93 15.5 28V18H8.5Z" fill="#2dd4bf"/>
+        </svg>
+        <span style={{ fontSize:16, fontFamily:"'Inter',sans-serif", color:"#fff", letterSpacing:"-0.02em" }}>
+          <b>flour</b><span style={{ fontWeight:300 }}>ish</span>
+        </span>
+      </div>
+      {/* Spinner */}
+      <div style={{ width:24, height:24, border:"1.5px solid #1e1e22", borderTopColor:"#2dd4bf", borderRadius:"50%", animation:"spin .8s linear infinite" }}/>
+    </div>
+  );
+}
 function td() { return new Date().toISOString().split("T")[0]; }
 function daw(c, w) { if (!c.titration?.length) return c.dose; let d = c.titration[0].dose; for (const t of c.titration) { if (t.week <= w) d = t.dose; } return d; }
 function fmtDate(d) { return new Date(d + "T12:00:00").toLocaleDateString("en-US", { month:"short", day:"numeric" }); }
@@ -264,7 +335,8 @@ export default function Flourish() {
 
   // ── Load data on mount ──
   useEffect(() => {
-    if (!isLoaded || !user) return;
+    if (!isLoaded) return;
+    if (!user) { setLoading(false); return; }
     loadAll();
   }, [isLoaded, user]);
 
@@ -275,12 +347,33 @@ export default function Flourish() {
         fetch("/api/profile"),
         fetch("/api/cycles"),
       ]);
+
+      // Guard against non-JSON error responses (401, 500, etc)
+      if (!profRes.ok || !cyclesRes.ok) {
+        console.error("API error:", profRes.status, cyclesRes.status);
+        // If 401, Clerk session not ready yet — retry once after delay
+        if (profRes.status === 401 || cyclesRes.status === 401) {
+          setTimeout(() => loadAll(), 1200);
+          return;
+        }
+        setLoading(false);
+        return;
+      }
+
       const prof = await profRes.json();
       const cycs = await cyclesRes.json();
+
       setProfile(prof);
-      setCycles(cycs);
-      if (cycs.length > 0) {
-        setActiveId(cycs[0].id);
+      // Normalize: attach empty arrays if missing
+      const normalized = (Array.isArray(cycs) ? cycs : []).map(c => ({
+        ...c,
+        compounds: c.compounds || [],
+        logs: c.logs || [],
+        training_sessions: c.training_sessions || [],
+      }));
+      setCycles(normalized);
+      if (normalized.length > 0) {
+        setActiveId(normalized[0].id);
         setOnboarded(true);
       }
     } catch (e) {
@@ -469,11 +562,7 @@ export default function Flourish() {
   ];
 
   // ── Loading / auth guards ──
-  if (!isLoaded || loading) return (
-    <div style={{ minHeight:"100vh", background:"#000", display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div style={{ width:28, height:28, border:"2px solid #1e1e22", borderTopColor:"#2dd4bf", borderRadius:"50%", animation:"spin .7s linear infinite" }}/>
-    </div>
-  );
+  if (!isLoaded || loading) return <SplashScreen />;
 
   if (!onboarded) return (
     <div>

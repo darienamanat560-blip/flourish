@@ -3,10 +3,35 @@ export const dynamic = 'force-dynamic';
 
 import { useSignIn, useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
 const T = '#2dd4bf';
+
+function CursorGlow() {
+  const glowRef = useRef(null);
+  const pos = useRef({ x: -400, y: -400 });
+  const current = useRef({ x: -400, y: -400 });
+  const raf = useRef(null);
+  useEffect(() => {
+    const onMove = (e) => { pos.current = { x: e.clientX, y: e.clientY }; };
+    window.addEventListener("mousemove", onMove);
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const tick = () => {
+      current.current.x = lerp(current.current.x, pos.current.x, 0.06);
+      current.current.y = lerp(current.current.y, pos.current.y, 0.06);
+      if (glowRef.current) glowRef.current.style.transform = `translate(${current.current.x}px, ${current.current.y}px)`;
+      raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
+    return () => { window.removeEventListener("mousemove", onMove); cancelAnimationFrame(raf.current); };
+  }, []);
+  return (
+    <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:0, overflow:"hidden" }}>
+      <div ref={glowRef} style={{ position:"absolute", top:-300, left:-300, width:600, height:600, borderRadius:"50%", background:"radial-gradient(circle, rgba(45,212,191,0.13) 0%, rgba(45,212,191,0.05) 35%, transparent 70%)", willChange:"transform" }}/>
+    </div>
+  );
+}
 
 function Logo() {
   return (
@@ -119,6 +144,7 @@ export default function SignInPage() {
       alignItems: 'center', justifyContent: 'center', padding: '24px 16px',
       fontFamily: "'JetBrains Mono', monospace",
     }}>
+      <CursorGlow />
       {/* Subtle background grid */}
       <div style={{
         position: 'fixed', inset: 0, pointerEvents: 'none',
