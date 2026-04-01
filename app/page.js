@@ -143,7 +143,7 @@ function Onboarding({ onComplete }) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 5000);
     try {
-      const r = await fetch("/api/ai", { method:"POST", headers:{"Content-Type":"application/json"}, signal:ctrl.signal, body:JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:800, messages:[{role:"user",content:`Protocol advisor. ${p.experience}, ${p.age}y, ${p.weight}lbs, goals:${p.goals.join(",")}. JSON only: {"cycleName":"","compounds":[{"name":"","dose":0,"unit":"","freq":"","cat":"","reason":""}],"summary":""}`}] }) });
+      const r = await fetch("/api/ai", { method:"POST", headers:{"Content-Type":"application/json"}, signal:ctrl.signal, body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:800, messages:[{role:"user",content:`Protocol advisor. ${p.experience}, ${p.age}y, ${p.weight}lbs, goals:${p.goals.join(",")}. JSON only: {"cycleName":"","compounds":[{"name":"","dose":0,"unit":"","freq":"","cat":"","reason":""}],"summary":""}`}] }) });
       clearTimeout(timer);
       if (!r.ok) throw new Error();
       const d = await r.json();
@@ -296,7 +296,7 @@ export default function Flourish() {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 6000);
     try {
-      const r = await fetch("/api/ai", { method:"POST", headers:{"Content-Type":"application/json"}, signal:ctrl.signal, body:JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:600, messages:[{role:"user",content:`Fitness protocol advisor. Analyze and give insights. Be concise, use sections. ${ctx}`}] }) });
+      const r = await fetch("/api/ai", { method:"POST", headers:{"Content-Type":"application/json"}, signal:ctrl.signal, body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:600, messages:[{role:"user",content:`Fitness protocol advisor. Analyze and give insights. Be concise, use sections. ${ctx}`}] }) });
       clearTimeout(timer);
       if (!r.ok) throw new Error();
       const d = await r.json();
