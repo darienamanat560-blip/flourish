@@ -1,5 +1,10 @@
+import { requireAuth } from '@/lib/auth';
+import { NextResponse } from 'next/server';
+
 export async function POST(request) {
   try {
+    await requireAuth();
+
     const body = await request.json();
     
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -18,8 +23,9 @@ export async function POST(request) {
     }
 
     const data = await response.json();
-    return Response.json(data);
+    return NextResponse.json(data);
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    if (error instanceof Response) return error;
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

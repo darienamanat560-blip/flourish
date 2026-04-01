@@ -1,4 +1,5 @@
 "use client";
+import { useUser, UserButton } from "@clerk/nextjs";
 import { useState, useEffect, useCallback, useRef } from "react";
 
 const T = "#2dd4bf";
@@ -226,37 +227,13 @@ function Onboarding({ onComplete }) {
 // ══════════════════════════════
 // DEFAULT DATA
 // ══════════════════════════════
-const DEF = {
-  id:"cycle1", name:"Summer Cut", goals:["Body recomposition","Fat loss"], startDate:"2025-06-01", weeks:12,
-  compounds:[
-    {id:"c1",name:"HGH",dose:6,unit:"IU",freq:"daily",status:"active",category:"growth",titration:[{week:1,dose:2},{week:2,dose:4},{week:3,dose:5},{week:4,dose:6}]},
-    {id:"c2",name:"Retatrutide",dose:2,unit:"mg",freq:"weekly",status:"active",category:"metabolic",titration:[{week:1,dose:0.25},{week:2,dose:0.5},{week:3,dose:1},{week:4,dose:2}]},
-    {id:"c3",name:"HCG",dose:500,unit:"IU",freq:"EOD",status:"active",category:"ancillary",titration:[{week:1,dose:500}]},
-    {id:"c4",name:"Anavar",dose:20,unit:"mg",freq:"daily",status:"active",category:"anabolic",titration:[{week:1,dose:10},{week:3,dose:20}]},
-    {id:"c5",name:"Testosterone",dose:200,unit:"mg",freq:"weekly",status:"active",category:"anabolic",titration:[{week:1,dose:100},{week:6,dose:200}]},
-    {id:"c6",name:"Aromasin",dose:25,unit:"mg",freq:"EOD",status:"active",category:"ancillary",titration:[{week:1,dose:25}]},
-  ],
-  logs:[
-    {id:"l1",date:"2025-07-01",weight:158,sleep:80,hrv:64,mood:7,stress:2,appetite:5,physique:"Getting leaner. Shoulders more defined.",sideEffects:"Acne",doses:{c1:6,c2:2,c3:500,c4:20,c5:200,c6:25}},
-    {id:"l2",date:"2025-06-28",weight:157,sleep:92,hrv:64,mood:8,stress:4,appetite:5,physique:"Shoulders growing, leaner.",sideEffects:"Potential T3 suppression, Acne from DHT",doses:{c1:5,c2:2,c3:450,c4:20,c5:100,c6:25}},
-    {id:"l3",date:"2025-06-25",weight:164,sleep:83,hrv:58,mood:7,stress:8,appetite:5,physique:"Leaner, composition better.",sideEffects:"Lethargy",doses:{c1:6,c2:2,c3:500,c4:20,c5:100,c6:25}},
-  ],
-  training:[
-    {id:"t1",date:"2025-07-01",type:"lift",exercise:"Bench Press",sets:[{reps:8,weight:185},{reps:6,weight:195},{reps:5,weight:205}]},
-    {id:"t2",date:"2025-06-28",type:"lift",exercise:"Squat",sets:[{reps:5,weight:275},{reps:5,weight:285},{reps:3,weight:295}]},
-    {id:"t3",date:"2025-06-25",type:"lift",exercise:"Bench Press",sets:[{reps:8,weight:175},{reps:6,weight:185},{reps:5,weight:195}]},
-    {id:"t4",date:"2025-06-30",type:"cardio",exercise:"Running",duration:25,distance:3.1,notes:"Easy pace"},
-  ]
-};
-
 // ══════════════════════════════
 // MAIN APP
 // ══════════════════════════════
 export default function Flourish() {
-  const [onboarded, setOnboarded] = useState(false);
-  const [profile, setProfile] = useState(null);
-  const [cycles, setCycles] = useState([DEF]);
-  const [activeId, setActiveId] = useState("cycle1");
+  const { user, isLoaded } = useUser();
+
+  // ── UI state ──
   const [tab, setTab] = useState("home");
   const [tr, setTr] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -270,29 +247,153 @@ export default function Flourish() {
   const [todayDoses, setTodayDoses] = useState({});
   const [trainModal, setTrainModal] = useState(false);
 
-  const cy = cycles.find(c => c.id === activeId) || cycles[0];
+  // ── DB state ──
+  const [profile, setProfile] = useState(null);
+  const [cycles, setCycles] = useState([]);
+  const [activeId, setActiveId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [onboarded, setOnboarded] = useState(false);
+
+  // ── Derived ──
+  const cy = cycles.find(c => c.id === activeId) || cycles[0] || null;
   const comps = cy?.compounds || [];
   const logs = cy?.logs || [];
-  const training = cy?.training || [];
+  const training = cy?.training_sessions || [];
   const active = comps.filter(c => c.status === "active");
   const latest = logs[0];
 
-  const setComps = fn => setCycles(p => p.map(c => c.id === activeId ? { ...c, compounds: typeof fn === "function" ? fn(c.compounds) : fn } : c));
-  const setLogs = fn => setCycles(p => p.map(c => c.id === activeId ? { ...c, logs: typeof fn === "function" ? fn(c.logs) : fn } : c));
-  const setTraining = fn => setCycles(p => p.map(c => c.id === activeId ? { ...c, training: typeof fn === "function" ? fn(c.training || []) : fn } : c));
+  // ── Load data on mount ──
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+    loadAll();
+  }, [isLoaded, user]);
 
+  const loadAll = async () => {
+    setLoading(true);
+    try {
+      const [profRes, cyclesRes] = await Promise.all([
+        fetch("/api/profile"),
+        fetch("/api/cycles"),
+      ]);
+      const prof = await profRes.json();
+      const cycs = await cyclesRes.json();
+      setProfile(prof);
+      setCycles(cycs);
+      if (cycs.length > 0) {
+        setActiveId(cycs[0].id);
+        setOnboarded(true);
+      }
+    } catch (e) {
+      console.error("loadAll error:", e);
+    }
+    setLoading(false);
+  };
+
+  // ── Helpers that mutate DB then update local state ──
   const sw = t => { setDetailId(null); setTr(true); setTimeout(() => { setTab(t); setTimeout(() => setTr(false), 40); }, 150); };
-  const addLog = useCallback(entry => { setLogs(p => [entry, ...p]); sw("history"); }, [activeId]);
-  const deleteLog = useCallback(id => { setLogs(p => p.filter(l => l.id !== id)); }, [activeId]);
 
-  const quickAdd = (db) => { setComps(p => [...p, { id:gid(), name:db.name, dose:db.dose, unit:db.unit, freq:db.freq, status:"active", category:db.cat, titration:[{week:1,dose:db.dose}] }]); setAddOpen(false); setAddSv(""); };
+  const addLog = useCallback(async (entry) => {
+    if (!cy) return;
+    const res = await fetch("/api/logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...entry, cycle_id: cy.id }),
+    });
+    const saved = await res.json();
+    setCycles(p => p.map(c => c.id === activeId ? { ...c, logs: [saved, ...(c.logs || [])] } : c));
+    sw("history");
+  }, [activeId, cy]);
+
+  const deleteLog = useCallback(async (id) => {
+    await fetch(`/api/logs/${id}`, { method: "DELETE" });
+    setCycles(p => p.map(c => c.id === activeId ? { ...c, logs: (c.logs || []).filter(l => l.id !== id) } : c));
+  }, [activeId]);
+
+  const quickAdd = async (dbItem) => {
+    if (!cy) return;
+    const res = await fetch("/api/compounds", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cycle_id: cy.id,
+        name: dbItem.name,
+        dose: dbItem.dose,
+        unit: dbItem.unit,
+        frequency: dbItem.freq,
+        status: "active",
+        category: dbItem.cat,
+        titration: [{ week: 1, dose: dbItem.dose }],
+      }),
+    });
+    const saved = await res.json();
+    setCycles(p => p.map(c => c.id === activeId ? { ...c, compounds: [...(c.compounds || []), saved] } : c));
+    setAddOpen(false); setAddSv("");
+  };
+
   const quickDose = (compId, dose) => { setTodayDoses(p => ({ ...p, [compId]: dose })); setLogDoseModal(null); };
-  const newCycle = () => { const c = { id:gid(), name:"New Cycle", goals:[], startDate:td(), weeks:12, compounds:[], logs:[], training:[] }; setCycles(p => [...p, c]); setActiveId(c.id); };
+
+  const newCycle = async () => {
+    const res = await fetch("/api/cycles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "New Cycle", goals: [], weeks: 12 }),
+    });
+    const saved = await res.json();
+    setCycles(p => [saved, ...p]);
+    setActiveId(saved.id);
+  };
+
+  const onOnboardingComplete = async ({ profile: pr, cycle: c }) => {
+    // Save profile
+    await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: pr.name,
+        age: Number(pr.age) || null,
+        weight_lbs: Number(pr.weight) || null,
+        experience: pr.experience,
+        goals: pr.goals,
+        health_notes: pr.health,
+      }),
+    });
+    // Save cycle
+    const cycRes = await fetch("/api/cycles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: c.name, goals: c.goals, weeks: 12 }),
+    });
+    const savedCycle = await cycRes.json();
+    // Save compounds from AI recommendation
+    const compPromises = (c.compounds || []).map(comp =>
+      fetch("/api/compounds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cycle_id: savedCycle.id,
+          name: comp.name,
+          dose: comp.dose,
+          unit: comp.unit,
+          frequency: comp.freq,
+          status: "active",
+          category: comp.category,
+          titration: [{ week: 1, dose: comp.dose }],
+        }),
+      }).then(r => r.json())
+    );
+    const savedComps = await Promise.all(compPromises);
+    savedCycle.compounds = savedComps;
+    savedCycle.logs = [];
+    savedCycle.training_sessions = [];
+    setCycles([savedCycle]);
+    setActiveId(savedCycle.id);
+    setOnboarded(true);
+  };
 
   // AI Insights
   const getInsights = async () => {
     setInsightsLoading(true); setInsightsOpen(true);
-    const ctx = `Cycle:${cy.name}, Goals:${cy.goals.join(",")}, Active compounds:${active.map(c=>`${c.name} ${c.dose}${c.unit} ${c.freq}`).join("; ")}, Latest metrics: weight=${latest?.weight||"?"}, sleep=${latest?.sleep||"?"}, mood=${latest?.mood||"?"}, Recent sides:${logs.slice(0,3).map(l=>l.sideEffects).filter(Boolean).join("; ")}, Training PRs:${training.filter(t=>t.type==="lift").slice(0,3).map(t=>`${t.exercise} ${Math.max(...(t.sets||[]).map(s=>s.weight))}lbs`).join(", ")}`;
+    const ctx = `Cycle:${cy.name}, Goals:${(cy.goals||[]).join(",")}, Active compounds:${active.map(c=>`${c.name} ${c.dose}${c.unit} ${c.frequency||c.freq}`).join("; ")}, Latest metrics: weight=${latest?.weight_lbs||"?"}, sleep=${latest?.sleep_score||"?"}, mood=${latest?.mood||"?"}, Recent sides:${logs.slice(0,3).map(l=>l.side_effects).filter(Boolean).join("; ")}, Training PRs:${training.filter(t=>t.type==="lift").slice(0,3).map(t=>`${t.exercise} ${Math.max(...(t.sets||[]).map(s=>s.weight))}lbs`).join(", ")}`;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 6000);
     try {
@@ -304,7 +405,7 @@ export default function Flourish() {
     } catch {
       clearTimeout(timer);
       // Pre-built insights
-      const weightTrend = logs.length >= 2 ? (logs[0].weight - logs[logs.length-1].weight) : 0;
+      const weightTrend = logs.length >= 2 ? (logs[0].weight_lbs - logs[logs.length-1].weight_lbs) : 0;
       const avgMood = logs.length ? (logs.reduce((s,l) => s + (l.mood||0), 0) / logs.length).toFixed(1) : "?";
       const liftPRs = training.filter(t => t.type === "lift");
       const benchPR = liftPRs.filter(t => t.exercise === "Bench Press").map(t => Math.max(...t.sets.map(s => s.weight))).sort((a,b) => b-a)[0];
@@ -312,13 +413,51 @@ export default function Flourish() {
       txt += `**Stack Analysis**\n\n${active.length} active compounds. `;
       if (active.some(c => c.category === "anabolic")) txt += "Anabolic base is established. ";
       if (active.some(c => c.category === "metabolic")) txt += "Metabolic support in place for fat loss. ";
-      const sides = [...new Set(logs.flatMap(l => (l.sideEffects||"").split(",").map(s=>s.trim()).filter(Boolean)))];
+      const sides = [...new Set(logs.flatMap(l => (l.side_effects||"").split(",").map(s=>s.trim()).filter(Boolean)))];
       if (sides.length) txt += `\n\n**Side Effects to Watch**\n\n${sides.join(", ")}. Consider reviewing estrogen management if acne persists.`;
       if (benchPR) txt += `\n\n**Strength**\n\nBench PR: ${benchPR}lbs. Track weekly to correlate with compound changes.`;
       txt += `\n\n**Recommendation**\n\nStay consistent with logging. Your ${cy.goals[0]?.toLowerCase() || "optimization"} goals are on track based on current metrics.`;
       setInsightsData(txt);
     }
     setInsightsLoading(false);
+  };
+
+  // ── Named DB handlers (avoid template literals inside JSX props) ──
+  const saveTraining = async (entry) => {
+    if (!cy) return;
+    const res = await fetch("/api/training", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...entry, cycle_id: cy.id }),
+    });
+    const saved = await res.json();
+    setCycles(p => p.map(c => c.id === activeId ? { ...c, training_sessions: [saved, ...(c.training_sessions || [])] } : c));
+  };
+
+  const addCompound = async (comp) => {
+    if (!cy) return;
+    const res = await fetch("/api/compounds", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...comp, cycle_id: cy.id }),
+    });
+    const saved = await res.json();
+    setCycles(p => p.map(c => c.id === activeId ? { ...c, compounds: [...(c.compounds || []), saved] } : c));
+  };
+
+  const editCompound = async (id, updates) => {
+    const res = await fetch("/api/compounds/" + id, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    const saved = await res.json();
+    setCycles(p => p.map(c => c.id === activeId ? { ...c, compounds: (c.compounds || []).map(x => x.id === id ? saved : x) } : c));
+  };
+
+  const removeCompound = async (id) => {
+    await fetch("/api/compounds/" + id, { method: "DELETE" });
+    setCycles(p => p.map(c => c.id === activeId ? { ...c, compounds: (c.compounds || []).filter(x => x.id !== id) } : c));
   };
 
   const TABS = [
@@ -329,7 +468,18 @@ export default function Flourish() {
     { id:"history", label:"History", d:"M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
   ];
 
-  if (!onboarded) return (<div><Onboarding onComplete={({profile:pr,cycle:c})=>{setProfile(pr);setCycles(p=>[...p,c]);setActiveId(c.id);setOnboarded(true)}}/><button onClick={()=>setOnboarded(true)} style={{position:"fixed",bottom:20,right:20,fontSize:10,color:"#1e1e22",background:"transparent",border:"none",cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}}>Skip →</button></div>);
+  // ── Loading / auth guards ──
+  if (!isLoaded || loading) return (
+    <div style={{ minHeight:"100vh", background:"#000", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ width:28, height:28, border:"2px solid #1e1e22", borderTopColor:"#2dd4bf", borderRadius:"50%", animation:"spin .7s linear infinite" }}/>
+    </div>
+  );
+
+  if (!onboarded) return (
+    <div>
+      <Onboarding onComplete={onOnboardingComplete}/>
+    </div>
+  );
 
   // ── COMPOUND DETAIL PAGE ──
   if (detailId) {
@@ -476,10 +626,10 @@ export default function Flourish() {
         {tab === "log" && (<LogView compounds={comps} onSave={addLog} />)}
 
         {/* ═══ TRAINING ═══ */}
-        {tab === "train" && (<TrainView training={training} setTraining={setTraining} compounds={comps} />)}
+        {tab === "train" && (<TrainView training={training} cycleId={cy?.id} onSaveTraining={saveTraining} compounds={comps} />)}
 
         {/* ═══ STACK ═══ */}
-        {tab === "stack" && (<StackView compounds={comps} setCompounds={setComps} />)}
+        {tab === "stack" && (<StackView compounds={comps} cycleId={cy?.id} onAdd={addCompound} onEdit={editCompound} onRemove={removeCompound} />)}
 
         {/* ═══ HISTORY ═══ */}
         {tab === "history" && (<HistoryView logs={logs} compounds={comps} onDelete={deleteLog} training={training} />)}
@@ -516,7 +666,7 @@ export default function Flourish() {
 // ══════════════════════════════
 // TRAINING VIEW
 // ══════════════════════════════
-function TrainView({ training, setTraining, compounds }) {
+function TrainView({ training, cycleId, onSaveTraining, compounds }) {
   const [mode, setMode] = useState("lift");
   const [exercise, setExercise] = useState(LIFTS[0]);
   const [sets, setSets] = useState([{ reps:"", weight:"" }]);
@@ -524,16 +674,16 @@ function TrainView({ training, setTraining, compounds }) {
   const [duration, setDuration] = useState("");
   const [distance, setDistance] = useState("");
 
-  const saveLift = () => {
+  const saveLift = async () => {
     const valid = sets.filter(s => s.reps && s.weight);
     if (!valid.length) return;
-    setTraining(p => [{ id:gid(), date:td(), type:"lift", exercise, sets:valid.map(s => ({ reps:Number(s.reps), weight:Number(s.weight) })) }, ...p]);
+    await onSaveTraining({ type:"lift", exercise, sets:valid.map(s => ({ reps:Number(s.reps), weight:Number(s.weight) })) });
     setSets([{ reps:"", weight:"" }]);
   };
 
-  const saveCardio = () => {
+  const saveCardio = async () => {
     if (!duration) return;
-    setTraining(p => [{ id:gid(), date:td(), type:"cardio", exercise:cardioEx, duration:Number(duration), distance:Number(distance)||0 }, ...p]);
+    await onSaveTraining({ type:"cardio", exercise:cardioEx, duration_min:Number(duration), distance_mi:Number(distance)||0 });
     setDuration(""); setDistance("");
   };
 
@@ -602,7 +752,7 @@ function TrainView({ training, setTraining, compounds }) {
               <span style={{ fontSize:9, padding:"2px 8px", background:"rgba(45,212,191,0.06)", color:T, border:"1px solid rgba(45,212,191,0.1)", textTransform:"uppercase" }}>{t.type}</span>
             </div>
             {t.type === "lift" && t.sets && (<div style={{ fontSize:10, color:"#52525b", marginTop:6 }}>{t.sets.map((s, i) => `${s.reps}×${s.weight}lbs`).join("  ·  ")}</div>)}
-            {t.type === "cardio" && (<div style={{ fontSize:10, color:"#52525b", marginTop:6 }}>{t.duration}min{t.distance ? ` · ${t.distance}mi` : ""}</div>)}
+            {t.type === "cardio" && (<div style={{ fontSize:10, color:"#52525b", marginTop:6 }}>{t.duration_min}min{t.distance_mi ? ` · ${t.distance_mi}mi` : ""}</div>)}
           </div>
         ))}
       </div>)}
@@ -618,7 +768,7 @@ function LogView({ compounds, onSave }) {
   const [ck, setCk] = useState({}); const [cd, setCd] = useState({});
   const [f, setF] = useState({ weight:"", sleep:"", hrv:"", mood:7, stress:5, appetite:5, sideEffects:"", physique:"" });
   const toggle = id => setCk(p => ({ ...p, [id]: !p[id] }));
-  const save = () => { const doses={}; Object.keys(ck).filter(k=>ck[k]).forEach(id=>{const c=compounds.find(x=>x.id===id);doses[id]=cd[id]!==undefined?Number(cd[id]):c.dose}); onSave({id:gid(),date:td(),weight:Number(f.weight)||0,sleep:Number(f.sleep)||0,hrv:Number(f.hrv)||0,mood:f.mood,stress:f.stress,appetite:f.appetite,sideEffects:f.sideEffects,physique:f.physique,doses}); setCk({});setCd({});setF({weight:"",sleep:"",hrv:"",mood:7,stress:5,appetite:5,sideEffects:"",physique:""}); };
+  const save = () => { const doses={}; Object.keys(ck).filter(k=>ck[k]).forEach(id=>{const c=compounds.find(x=>x.id===id);doses[id]=cd[id]!==undefined?Number(cd[id]):c.dose}); onSave({date:td(),weight_lbs:Number(f.weight)||null,sleep_score:Number(f.sleep)||null,hrv:Number(f.hrv)||null,mood:f.mood,stress:f.stress,appetite:f.appetite,side_effects:f.sideEffects||null,physique_notes:f.physique||null,doses}); setCk({});setCd({});setF({weight:"",sleep:"",hrv:"",mood:7,stress:5,appetite:5,sideEffects:"",physique:""}); };
   return (
     <div>
       <h1 style={{ ...HS, marginBottom:4 }}>Log Entry</h1>
@@ -650,15 +800,25 @@ function LogView({ compounds, onSave }) {
 // ══════════════════════════════
 // STACK VIEW
 // ══════════════════════════════
-function StackView({ compounds, setCompounds }) {
+function StackView({ compounds, cycleId, onAdd, onEdit, onRemove }) {
   const [modal, setModal] = useState(null);
   const [sv, setSv] = useState("");
   const [f, setF] = useState({ name:"", dose:"", unit:"mg", freq:"daily", category:"growth" });
   const [tf, setTf] = useState([]);
+  const [saving, setSaving] = useState(false);
   const openAdd = () => { setF({ name:"",dose:"",unit:"mg",freq:"daily",category:"growth" }); setSv(""); setTf([{week:1,dose:""}]); setModal("add"); };
-  const openEdit = c => { setF({ name:c.name,dose:c.dose,unit:c.unit,freq:c.freq,category:c.category,id:c.id }); setSv(c.name); setTf(c.titration?.length?c.titration.map(t=>({...t})):[{week:1,dose:c.dose}]); setModal("edit"); };
+  const openEdit = c => { setF({ name:c.name,dose:c.dose,unit:c.unit,freq:c.frequency||c.freq,category:c.category,id:c.id }); setSv(c.name); setTf(c.titration?.length?c.titration.map(t=>({...t})):[{week:1,dose:c.dose}]); setModal("edit"); };
   const handleAuto = r => { setSv(r.name); setF(p=>({...p,name:r.name,dose:r.dose,unit:r.unit,freq:r.freq,category:r.cat})); };
-  const save = () => { const tit=tf.filter(t=>t.dose!==""&&t.dose!==undefined).map(t=>({week:Number(t.week),dose:Number(t.dose)})); if(modal==="add")setCompounds(p=>[...p,{id:gid(),name:f.name,dose:Number(f.dose),unit:f.unit,freq:f.freq,status:"active",category:f.category,titration:tit}]); else setCompounds(p=>p.map(c=>c.id===f.id?{...c,name:f.name,dose:Number(f.dose),unit:f.unit,freq:f.freq,category:f.category,titration:tit}:c)); setModal(null); };
+  const save = async () => {
+    setSaving(true);
+    const tit = tf.filter(t=>t.dose!==""&&t.dose!==undefined).map(t=>({week:Number(t.week),dose:Number(t.dose)}));
+    if (modal==="add") {
+      await onAdd({ name:f.name, dose:Number(f.dose), unit:f.unit, frequency:f.freq, status:"active", category:f.category, titration:tit });
+    } else {
+      await onEdit(f.id, { name:f.name, dose:Number(f.dose), unit:f.unit, frequency:f.freq, category:f.category, titration:tit });
+    }
+    setSaving(false); setModal(null);
+  };
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
@@ -671,7 +831,7 @@ function StackView({ compounds, setCompounds }) {
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}><div style={{ width:6, height:6, borderRadius:"50%", background:c.status==="active"?T:"#27272a" }}/><span style={{ flex:1, fontSize:14, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{c.name}</span><span style={{ fontSize:9, padding:"2px 8px", background:c.status==="active"?"rgba(45,212,191,0.06)":"#111114", color:c.status==="active"?T:"#3f3f46", border:`1px solid ${c.status==="active"?"rgba(45,212,191,0.1)":"#1e1e22"}`, textTransform:"uppercase", fontWeight:600, letterSpacing:"0.06em" }}>{c.status}</span></div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>{[{l:"Dose",v:`${c.dose} ${c.unit}`},{l:"Freq",v:c.freq},{l:"Category",v:c.category}].map((d,i)=>(<div key={i}><div style={{ fontSize:9, color:"#27272a", textTransform:"uppercase", letterSpacing:"0.1em" }}>{d.l}</div><div style={{ fontSize:13, fontWeight:600, color:"#52525b", marginTop:3, fontFamily:"'Inter',sans-serif" }}>{d.v}</div></div>))}</div>
             <div style={{ display:"flex", gap:6, marginTop:14, paddingTop:12, borderTop:"1px solid #141416" }}>
-              {[{l:"Edit",fn:()=>openEdit(c)},{l:c.status==="active"?"Pause":"Activate",fn:()=>setCompounds(p=>p.map(x=>x.id===c.id?{...x,status:x.status==="active"?"off":"active"}:x))},{l:"Remove",fn:()=>setCompounds(p=>p.filter(x=>x.id!==c.id)),d:true}].map((b,i)=>(<button key={i} onClick={b.fn} style={{ flex:1, height:36, background:"transparent", border:`1px solid ${b.d?"#7f1d1d":"#1e1e22"}`, color:b.d?"#ef4444":"#3f3f46", fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>{b.l}</button>))}
+              {[{l:"Edit",fn:()=>openEdit(c)},{l:c.status==="active"?"Pause":"Activate",fn:()=>onEdit(c.id,{status:c.status==="active"?"paused":"active"})},{l:"Remove",fn:()=>onRemove(c.id),d:true}].map((b,i)=>(<button key={i} onClick={b.fn} style={{ flex:1, height:36, background:"transparent", border:`1px solid ${b.d?"#7f1d1d":"#1e1e22"}`, color:b.d?"#ef4444":"#3f3f46", fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>{b.l}</button>))}
             </div>
           </div>
         ))}
@@ -709,15 +869,15 @@ function HistoryView({ logs, compounds, onDelete, training }) {
           <div key={log.id} className="c" style={{ padding:"16px 18px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}><span style={{ fontSize:13, fontWeight:700, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{log.date}</span><button onClick={()=>onDelete(log.id)} style={{ fontSize:10, color:"#27272a", background:"transparent", border:"none", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>delete</button></div>
             <div style={{ display:"flex", flexWrap:"wrap", gap:"6px 16px", marginBottom:12, fontSize:11 }}>
-              {log.weight>0&&<span style={{color:"#3f3f46"}}>Weight <span style={{color:"#71717a",fontWeight:600}}>{log.weight}lbs</span></span>}
-              {log.sleep>0&&<span style={{color:"#3f3f46"}}>Sleep <span style={{color:"#71717a",fontWeight:600}}>{log.sleep}</span></span>}
+              {log.weight_lbs>0&&<span style={{color:"#3f3f46"}}>Weight <span style={{color:"#71717a",fontWeight:600}}>{log.weight_lbs}lbs</span></span>}
+              {log.sleep_score>0&&<span style={{color:"#3f3f46"}}>Sleep <span style={{color:"#71717a",fontWeight:600}}>{log.sleep_score}</span></span>}
               <span style={{color:"#3f3f46"}}>Mood <span style={{color:"#71717a",fontWeight:600}}>{log.mood}/10</span></span>
             </div>
             <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:(log.sideEffects||log.physique)?12:0 }}>
               {Object.entries(log.doses).map(([cid,dose])=>{const c=compounds.find(x=>x.id===cid);if(!c)return null;return(<span key={cid} style={{ fontSize:10, padding:"3px 8px", background:"rgba(45,212,191,0.04)", color:"rgba(45,212,191,0.6)", border:"1px solid rgba(45,212,191,0.08)", fontWeight:500 }}>{c.name}: {dose}{c.unit}</span>);})}
             </div>
-            {log.sideEffects&&<div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:log.physique?10:0 }}>{log.sideEffects.split(",").map((s,i)=><span key={i} style={{ fontSize:9, padding:"3px 8px", background:"rgba(239,68,68,0.06)", color:"#f87171", border:"1px solid rgba(239,68,68,0.1)", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.04em" }}>{s.trim()}</span>)}</div>}
-            {log.physique&&<p style={{ fontSize:11, padding:"10px 12px", background:"rgba(45,212,191,0.03)", color:T, border:"1px solid rgba(45,212,191,0.08)", lineHeight:1.7, margin:0 }}>{log.physique}</p>}
+            {log.side_effects&&<div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:log.physique_notes?10:0 }}>{log.side_effects.split(",").map((s,i)=><span key={i} style={{ fontSize:9, padding:"3px 8px", background:"rgba(239,68,68,0.06)", color:"#f87171", border:"1px solid rgba(239,68,68,0.1)", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.04em" }}>{s.trim()}</span>)}</div>}
+            {log.physique_notes&&<p style={{ fontSize:11, padding:"10px 12px", background:"rgba(45,212,191,0.03)", color:T, border:"1px solid rgba(45,212,191,0.08)", lineHeight:1.7, margin:0 }}>{log.physique_notes}</p>}
           </div>
         ))}
         {!logs.length&&<div style={{ textAlign:"center", padding:60, color:"#27272a", fontSize:12 }}>No logs yet.</div>}
