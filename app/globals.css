@@ -117,3 +117,88 @@ input[type="range"]::-webkit-slider-thumb {
   .safe-top { padding-top: env(safe-area-inset-top); }
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 }
+
+/* ── Auth pages ── */
+@keyframes authFadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.auth-card {
+  animation: authFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.auth-input {
+  width: 100%;
+  height: 48px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid #1e1e22;
+  padding: 0 16px;
+  color: #e4e4e7;
+  font-size: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  transition: border-color 0.2s, background 0.2s;
+  outline: none;
+  border-radius: 0;
+}
+.auth-input:focus {
+  border-color: rgba(45,212,191,0.5);
+  background: rgba(45,212,191,0.02);
+}
+.auth-input::placeholder { color: #3f3f46; }
+.auth-btn-primary {
+  width: 100%;
+  height: 48px;
+  background: #2dd4bf;
+  color: #000;
+  border: none;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.auth-btn-primary:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+.auth-btn-primary:active { transform: translateY(0); }
+.auth-btn-primary:disabled { opacity: 0.4; cursor: default; }
+.auth-btn-social {
+  width: 100%;
+  height: 48px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid #1e1e22;
+  color: #a1a1aa;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.auth-btn-social:hover { border-color: #3f3f46; background: rgba(255,255,255,0.05); color: #e4e4e7; }
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+}
+.auth-divider::before, .auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #1e1e22;
+}
+.auth-error {
+  font-size: 11px;
+  color: #f87171;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 10px 12px;
+  background: rgba(239,68,68,0.06);
+  border: 1px solid rgba(239,68,68,0.15);
+  margin-bottom: 16px;
+}
