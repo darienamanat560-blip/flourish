@@ -44,7 +44,7 @@ const CDB = [
   { name:"Clenbuterol", unit:"mcg", cat:"metabolic", dose:40, freq:"daily", desc:"Beta-2 agonist with thermogenic properties.", stacks:["T3 (Cytomel)","Injectable L-Carnitine"] },
 ];
 
-const CATS = ["growth","metabolic","recovery","anabolic","ancillary","SARM","nootropic","longevity","other"];
+const CATS = ["growth","metabolic","recovery","anabolic","ancillary","SARM","nootropic","longevity","supplement","peptide","vitamin","other"];
 const FREQS = ["daily","EOD","E3D","2x/week","3x/week","weekly","biweekly","as needed"];
 const GOALS = ["Body recomposition","Fat loss","Lean mass gain","Strength","Recovery & healing","Cognitive enhancement","Longevity","Hormone optimization"];
 const LIFTS = ["Bench Press","Squat","Deadlift","Overhead Press","Barbell Row","Front Squat","Romanian Deadlift","Incline Bench"];
@@ -149,17 +149,23 @@ function SL({ children, right }) {
 }
 
 function Mod({ open, onClose, title, children }) {
+  useEffect(() => {
+    if (open) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
+
   if (!open) return null;
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:100, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={onClose}>
-      <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.8)", backdropFilter:"blur(8px)" }} />
-      <div style={{ position:"relative", width:"100%", maxWidth:520, maxHeight:"85vh", overflowY:"auto", background:"#0a0a0c", borderTop:"1px solid #1e1e22", animation:"slideUp .25s ease-out" }} onClick={e => e.stopPropagation()}>
-        <div style={{ width:36, height:3, background:"#27272a", borderRadius:2, margin:"10px auto 0" }} />
-        <div style={{ position:"sticky", top:0, background:"#0a0a0c", borderBottom:"1px solid #141416", padding:"16px 20px", display:"flex", justifyContent:"space-between", alignItems:"center", zIndex:1 }}>
-          <span style={{ fontSize:16, fontWeight:700, color:"#fff", fontFamily:"'Inter',sans-serif" }}>{title}</span>
-          <button onClick={onClose} style={{ width:28, height:28, background:"#141416", border:"1px solid #1e1e22", color:"#52525b", cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>&times;</button>
+    <div style={{ position:"fixed", inset:0, zIndex:9999, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={onClose}>
+      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", backdropFilter:"blur(6px)", WebkitBackdropFilter:"blur(6px)" }} />
+      <div style={{ position:"relative", zIndex:10000, width:"100%", maxWidth:520, maxHeight:"88vh", overflowY:"auto", background:"#09090b", borderTop:"1px solid #27272a", borderLeft:"1px solid #1e1e22", borderRight:"1px solid #1e1e22", borderRadius:"16px 16px 0 0", animation:"slideUp .28s cubic-bezier(0.16,1,0.3,1)" }} onClick={e => e.stopPropagation()}>
+        <div style={{ width:40, height:4, background:"#27272a", borderRadius:2, margin:"12px auto 0" }} />
+        <div style={{ position:"sticky", top:0, background:"#09090b", borderBottom:"1px solid #141416", padding:"16px 20px", display:"flex", justifyContent:"space-between", alignItems:"center", zIndex:1 }}>
+          <span style={{ fontSize:15, fontWeight:700, color:"#fff", fontFamily:"'Inter',sans-serif", letterSpacing:"-0.01em" }}>{title}</span>
+          <button onClick={onClose} style={{ width:28, height:28, background:"transparent", border:"1px solid #27272a", color:"#52525b", cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:4 }}>&times;</button>
         </div>
-        <div style={{ padding:"20px 20px 24px" }}>{children}</div>
+        <div style={{ padding:"20px 20px 32px" }}>{children}</div>
       </div>
     </div>
   );
@@ -168,20 +174,83 @@ function Mod({ open, onClose, title, children }) {
 function AC({ value, onChange, onSelect }) {
   const [open, setOpen] = useState(false);
   const [res, setRes] = useState([]);
+  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const ref = useRef(null);
-  useEffect(() => { if (value.length > 0) { setRes(CDB.filter(c => c.name.toLowerCase().includes(value.toLowerCase())).slice(0, 8)); setOpen(true); } else { setOpen(false); setRes([]); } }, [value]);
-  useEffect(() => { const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
+  const aiTimer = useRef(null);
+
+  useEffect(() => {
+    if (value.length === 0) { setOpen(false); setRes([]); setAiSuggestion(null); return; }
+    const local = CDB.filter(c => c.name.toLowerCase().includes(value.toLowerCase())).slice(0, 6);
+    setRes(local);
+    setOpen(true);
+    // AI prediction for anything not clearly in CDB
+    clearTimeout(aiTimer.current);
+    if (value.length >= 3) {
+      aiTimer.current = setTimeout(async () => {
+        setAiLoading(true);
+        try {
+          const r = await fetch("/api/ai", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "claude-sonnet-4-6",
+              max_tokens: 300,
+              messages: [{ role: "user", content: `User typed "${value}" in a compound search. Predict what supplement, peptide, or compound they want. Respond ONLY with valid JSON, no markdown:
+{"name":"full compound name","dose":number,"unit":"mg or mcg or IU","freq":"daily or weekly etc","cat":"recovery or growth or anabolic or metabolic or ancillary or SARM or nootropic or longevity","desc":"1 sentence what it does and key benefit","knownCompound":true}
+If you don't recognize it, set knownCompound:false and make your best guess.` }]
+            })
+          });
+          const d = await r.json();
+          const txt = (d.content||[]).map(i=>i.text||"").join("").replace(/```json|```/g,"").trim();
+          const parsed = JSON.parse(txt);
+          // Only show if different from local results
+          const alreadyShown = local.some(l => l.name.toLowerCase() === parsed.name.toLowerCase());
+          if (!alreadyShown) setAiSuggestion(parsed);
+          else setAiSuggestion(null);
+        } catch { setAiSuggestion(null); }
+        setAiLoading(false);
+      }, 600);
+    }
+    return () => clearTimeout(aiTimer.current);
+  }, [value]);
+
+  useEffect(() => {
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  const allResults = aiSuggestion ? [...res, { ...aiSuggestion, _ai: true }] : res;
+
   return (
     <div ref={ref} style={{ position:"relative", marginBottom:14 }}>
       <label style={LS}>Compound Name</label>
-      <input type="text" value={value} onChange={e => onChange(e.target.value)} onFocus={() => { if (res.length) setOpen(true); }} placeholder="Start typing..." style={IS} onFocus={e => e.target.style.borderColor = T} onBlur={e => { setTimeout(() => e.target.style.borderColor = "#1e1e22", 200); }} />
-      {open && res.length > 0 && (
-        <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:200, marginTop:2, background:"#0a0a0c", border:"1px solid #1e1e22", maxHeight:260, overflowY:"auto", boxShadow:"0 16px 48px rgba(0,0,0,0.8)" }}>
-          {res.map((r, i) => (
-            <button key={i} onClick={() => { onSelect(r); setOpen(false); }} style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 14px", background:"transparent", border:"none", borderBottom:"1px solid #141416", cursor:"pointer", color:"#a1a1aa", textAlign:"left", fontFamily:"'JetBrains Mono',monospace" }}
-              onMouseEnter={e => e.currentTarget.style.background = "#141416"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-              <div><div style={{ fontSize:13, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{r.name}</div><div style={{ fontSize:10, color:"#3f3f46", marginTop:2 }}>{r.dose} {r.unit} · {r.freq}</div></div>
-              <span style={{ fontSize:9, padding:"2px 8px", background:"rgba(45,212,191,0.06)", color:T, textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:600, border:"1px solid rgba(45,212,191,0.1)" }}>{r.cat}</span>
+      <div style={{ position:"relative" }}>
+        <input type="text" value={value} onChange={e => onChange(e.target.value)}
+          onFocus={() => { if (allResults.length) setOpen(true); }}
+          placeholder="Search or describe a compound..."
+          style={IS}
+          onFocus={e => e.target.style.borderColor = T}
+          onBlur={e => { setTimeout(() => e.target.style.borderColor = "#1e1e22", 200); }} />
+        {aiLoading && <div style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", width:14, height:14, border:"1.5px solid #27272a", borderTopColor:T, borderRadius:"50%", animation:"spin .7s linear infinite" }}/>}
+      </div>
+      {open && allResults.length > 0 && (
+        <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:500, marginTop:2, background:"#0a0a0c", border:"1px solid #1e1e22", maxHeight:280, overflowY:"auto", boxShadow:"0 20px 60px rgba(0,0,0,0.9)", borderRadius:4 }}>
+          {allResults.map((r, i) => (
+            <button key={i} onClick={() => { onSelect(r); setOpen(false); setAiSuggestion(null); }}
+              style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"flex-start", padding:"12px 14px", background:"transparent", border:"none", borderBottom:"1px solid #0f0f11", cursor:"pointer", textAlign:"left", fontFamily:"'JetBrains Mono',monospace" }}
+              onMouseEnter={e => e.currentTarget.style.background = "#111114"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }}>
+                  <span style={{ fontSize:13, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{r.name}</span>
+                  {r._ai && <span style={{ fontSize:8, padding:"1px 5px", background:"rgba(45,212,191,0.08)", color:T, border:"1px solid rgba(45,212,191,0.15)", letterSpacing:"0.08em" }}>AI</span>}
+                </div>
+                <div style={{ fontSize:10, color:"#3f3f46" }}>{r.dose} {r.unit} · {r.freq}</div>
+                {r.desc && <div style={{ fontSize:10, color:"#52525b", marginTop:4, lineHeight:1.5, whiteSpace:"normal" }}>{r.desc}</div>}
+              </div>
+              <span style={{ flexShrink:0, fontSize:9, padding:"2px 7px", background:"rgba(45,212,191,0.06)", color:T, textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:600, border:"1px solid rgba(45,212,191,0.1)", marginLeft:10, marginTop:2 }}>{r.cat}</span>
             </button>
           ))}
         </div>
@@ -213,20 +282,69 @@ function Onboarding({ onComplete }) {
   const generate = async () => {
     setLoading(true);
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 5000);
+    const timer = setTimeout(() => ctrl.abort(), 25000);
     try {
-      const r = await fetch("/api/ai", { method:"POST", headers:{"Content-Type":"application/json"}, signal:ctrl.signal, body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:800, messages:[{role:"user",content:`Protocol advisor. ${p.experience}, ${p.age}y, ${p.weight}lbs, goals:${p.goals.join(",")}. JSON only: {"cycleName":"","compounds":[{"name":"","dose":0,"unit":"","freq":"","cat":"","reason":""}],"summary":""}`}] }) });
+      const r = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: ctrl.signal,
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1200,
+          messages: [{
+            role: "user",
+            content: `You are a precision protocol advisor for compounds, peptides, and supplements. Build a personalized starting protocol.
+
+User profile: ${p.experience} experience, ${p.age || "?"}y old, ${p.weight || "?"}lbs, goals: ${p.goals.join(", ")}.${p.health ? " Health notes: " + p.health : ""}
+
+Return ONLY valid JSON, no markdown fences, no explanation:
+{
+  "cycleName": "descriptive name",
+  "compounds": [
+    {"name":"compound name","dose":number,"unit":"mg/mcg/IU","freq":"daily/weekly/EOD/etc","cat":"growth/metabolic/recovery/anabolic/ancillary/SARM/nootropic/longevity","reason":"why this compound for this person","desc":"what it does in 1 sentence"}
+  ],
+  "summary": "2-3 sentence overview of the protocol and expected outcomes"
+}
+
+Include 4-8 compounds. Include ancillaries and support compounds. Tailor doses to experience level. Consider peptides and supplements not just anabolics.`
+          }]
+        })
+      });
       clearTimeout(timer);
-      if (!r.ok) throw new Error();
+      if (!r.ok) throw new Error("API error " + r.status);
       const d = await r.json();
-      setRec(JSON.parse((d.content||[]).map(i=>i.text||"").join("").replace(/```json|```/g,"").trim()));
-    } catch { clearTimeout(timer); setRec(fallback()); }
+      const txt = (d.content||[]).map(i=>i.text||"").join("").replace(/```json|```/g,"").trim();
+      const parsed = JSON.parse(txt);
+      setRec(parsed);
+    } catch (e) {
+      console.error("generate error:", e);
+      clearTimeout(timer);
+      setRec(fallback());
+    }
     setLoading(false);
   };
 
   const finish = () => {
-    onComplete({ profile:p, cycle:{ id:gid(), name:rec?.cycleName||"My Cycle", goals:p.goals, startDate:td(), weeks:12,
-      compounds:(rec?.compounds||[]).map(c=>({id:gid(),name:c.name,dose:c.dose,unit:c.unit,freq:c.freq,status:"active",category:c.cat,titration:[{week:1,dose:c.dose}]})), logs:[], training:[] }});
+    onComplete({
+      profile: p,
+      cycle: {
+        name: rec?.cycleName || "My Protocol",
+        goals: p.goals,
+        weeks: 12,
+        compounds: (rec?.compounds || []).map(c => ({
+          name: c.name,
+          dose: Number(c.dose),
+          unit: c.unit,
+          freq: c.freq,       // used by onOnboardingComplete
+          frequency: c.freq,  // DB field name
+          status: "active",
+          category: c.cat || "other",
+          titration: [{ week: 1, dose: Number(c.dose) }],
+          desc: c.desc || "",
+          reason: c.reason || "",
+        })),
+      }
+    });
   };
 
   const titles = ["Welcome to Flourish.","About You","Your Goals","Health & History","Your Protocol"];
@@ -284,7 +402,15 @@ function Onboarding({ onComplete }) {
               <p style={{ fontSize:11, color:"#52525b", marginTop:6, lineHeight:1.6 }}>{rec.summary}</p>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:20 }}>
-              {rec.compounds.map((c,i)=>(<div key={i} className="c" style={{ padding:"13px 16px" }}><div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}><span style={{ fontSize:13, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{c.name}</span><span style={{ fontSize:10, color:"#3f3f46" }}>{c.dose} {c.unit} · {c.freq}</span></div>{c.reason&&<p style={{ fontSize:10, color:"#3f3f46", margin:0 }}>{c.reason}</p>}</div>))}
+              {rec.compounds.map((c,i)=>(<div key={i} className="c" style={{ padding:"13px 16px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                  <span style={{ fontSize:13, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{c.name}</span>
+                  <span style={{ fontSize:9, padding:"2px 7px", background:"rgba(45,212,191,0.06)", color:T, border:"1px solid rgba(45,212,191,0.1)", textTransform:"uppercase", letterSpacing:"0.06em" }}>{c.cat||c.category}</span>
+                </div>
+                <div style={{ fontSize:10, color:"#52525b", marginBottom:4 }}>{c.dose} {c.unit} · {c.freq}</div>
+                {c.desc&&<p style={{ fontSize:10, color:"#3f3f46", margin:"4px 0 0", lineHeight:1.5 }}>{c.desc}</p>}
+                {c.reason&&!c.desc&&<p style={{ fontSize:10, color:"#3f3f46", margin:"4px 0 0", lineHeight:1.5 }}>{c.reason}</p>}
+              </div>))}
             </div>
             <button onClick={finish} style={{ width:"100%", height:44, background:T, color:"#000", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>Start This Protocol</button>
             <button onClick={()=>{setStep(3);setRec(null)}} style={{ width:"100%", height:36, background:"transparent", border:"1px solid #1e1e22", color:"#3f3f46", fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", marginTop:8 }}>Adjust & Regenerate</button>
@@ -465,12 +591,13 @@ export default function Flourish() {
         body: JSON.stringify({
           cycle_id: savedCycle.id,
           name: comp.name,
-          dose: comp.dose,
+          dose: Number(comp.dose),
           unit: comp.unit,
-          frequency: comp.freq,
+          frequency: comp.frequency || comp.freq || "daily",
           status: "active",
-          category: comp.category,
-          titration: [{ week: 1, dose: comp.dose }],
+          category: comp.category || "other",
+          titration: comp.titration || [{ week: 1, dose: Number(comp.dose) }],
+          notes: comp.reason || comp.desc || null,
         }),
       }).then(r => r.json())
     );
@@ -895,16 +1022,22 @@ function StackView({ compounds, cycleId, onAdd, onEdit, onRemove }) {
   const [f, setF] = useState({ name:"", dose:"", unit:"mg", freq:"daily", category:"growth" });
   const [tf, setTf] = useState([]);
   const [saving, setSaving] = useState(false);
-  const openAdd = () => { setF({ name:"",dose:"",unit:"mg",freq:"daily",category:"growth" }); setSv(""); setTf([{week:1,dose:""}]); setModal("add"); };
-  const openEdit = c => { setF({ name:c.name,dose:c.dose,unit:c.unit,freq:c.frequency||c.freq,category:c.category,id:c.id }); setSv(c.name); setTf(c.titration?.length?c.titration.map(t=>({...t})):[{week:1,dose:c.dose}]); setModal("edit"); };
-  const handleAuto = r => { setSv(r.name); setF(p=>({...p,name:r.name,dose:r.dose,unit:r.unit,freq:r.freq,category:r.cat})); };
+  const [aiDesc, setAiDesc] = useState("");
+  const openAdd = () => { setF({ name:"",dose:"",unit:"mg",freq:"daily",category:"growth" }); setSv(""); setTf([{week:1,dose:""}]); setAiDesc(""); setModal("add"); };
+  const openEdit = c => {
+    const dbEntry = CDB.find(x => x.name === c.name);
+    setF({ name:c.name,dose:c.dose,unit:c.unit,freq:c.frequency||c.freq,category:c.category,id:c.id });
+    setSv(c.name); setTf(c.titration?.length?c.titration.map(t=>({...t})):[{week:1,dose:c.dose}]);
+    setAiDesc(c.notes || dbEntry?.desc || ""); setModal("edit");
+  };
+  const handleAuto = r => { setSv(r.name); setF(p=>({...p,name:r.name,dose:r.dose,unit:r.unit,freq:r.freq,category:r.cat})); setAiDesc(r.desc||""); };
   const save = async () => {
     setSaving(true);
     const tit = tf.filter(t=>t.dose!==""&&t.dose!==undefined).map(t=>({week:Number(t.week),dose:Number(t.dose)}));
     if (modal==="add") {
-      await onAdd({ name:f.name, dose:Number(f.dose), unit:f.unit, frequency:f.freq, status:"active", category:f.category, titration:tit });
+      await onAdd({ name:f.name, dose:Number(f.dose), unit:f.unit, frequency:f.freq, status:"active", category:f.category, titration:tit, notes:aiDesc||null });
     } else {
-      await onEdit(f.id, { name:f.name, dose:Number(f.dose), unit:f.unit, frequency:f.freq, category:f.category, titration:tit });
+      await onEdit(f.id, { name:f.name, dose:Number(f.dose), unit:f.unit, frequency:f.freq, category:f.category, titration:tit, notes:aiDesc||null });
     }
     setSaving(false); setModal(null);
   };
@@ -918,7 +1051,9 @@ function StackView({ compounds, cycleId, onAdd, onEdit, onRemove }) {
         {compounds.map(c => (
           <div key={c.id} className="c" style={{ padding:"16px 18px" }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}><div style={{ width:6, height:6, borderRadius:"50%", background:c.status==="active"?T:"#27272a" }}/><span style={{ flex:1, fontSize:14, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{c.name}</span><span style={{ fontSize:9, padding:"2px 8px", background:c.status==="active"?"rgba(45,212,191,0.06)":"#111114", color:c.status==="active"?T:"#3f3f46", border:`1px solid ${c.status==="active"?"rgba(45,212,191,0.1)":"#1e1e22"}`, textTransform:"uppercase", fontWeight:600, letterSpacing:"0.06em" }}>{c.status}</span></div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>{[{l:"Dose",v:`${c.dose} ${c.unit}`},{l:"Freq",v:c.freq},{l:"Category",v:c.category}].map((d,i)=>(<div key={i}><div style={{ fontSize:9, color:"#27272a", textTransform:"uppercase", letterSpacing:"0.1em" }}>{d.l}</div><div style={{ fontSize:13, fontWeight:600, color:"#52525b", marginTop:3, fontFamily:"'Inter',sans-serif" }}>{d.v}</div></div>))}</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>{[{l:"Dose",v:`${c.dose} ${c.unit}`},{l:"Freq",v:c.frequency||c.freq||"—"},{l:"Category",v:c.category}].map((d,i)=>(<div key={i}><div style={{ fontSize:9, color:"#27272a", textTransform:"uppercase", letterSpacing:"0.1em" }}>{d.l}</div><div style={{ fontSize:13, fontWeight:600, color:"#52525b", marginTop:3, fontFamily:"'Inter',sans-serif" }}>{d.v}</div></div>))}</div>
+            {/* Compound description from DB notes or CDB lookup */}
+            {(() => { const dbEntry = CDB.find(x => x.name === c.name); const desc = c.notes || dbEntry?.desc; return desc ? <p style={{ fontSize:11, color:"#3f3f46", margin:"10px 0 0", lineHeight:1.6, borderTop:"1px solid #0f0f11", paddingTop:10 }}>{desc}</p> : null; })()}
             <div style={{ display:"flex", gap:6, marginTop:14, paddingTop:12, borderTop:"1px solid #141416" }}>
               {[{l:"Edit",fn:()=>openEdit(c)},{l:c.status==="active"?"Pause":"Activate",fn:()=>onEdit(c.id,{status:c.status==="active"?"paused":"active"})},{l:"Remove",fn:()=>onRemove(c.id),d:true}].map((b,i)=>(<button key={i} onClick={b.fn} style={{ flex:1, height:36, background:"transparent", border:`1px solid ${b.d?"#7f1d1d":"#1e1e22"}`, color:b.d?"#ef4444":"#3f3f46", fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>{b.l}</button>))}
             </div>
@@ -926,7 +1061,8 @@ function StackView({ compounds, cycleId, onAdd, onEdit, onRemove }) {
         ))}
       </div>
       <Mod open={!!modal} onClose={()=>setModal(null)} title={modal==="add"?"Add Compound":"Edit Compound"}>
-        <AC value={sv} onChange={v=>{setSv(v);setF(p=>({...p,name:v}))}} onSelect={handleAuto}/>
+        <AC value={sv} onChange={v=>{setSv(v);setF(p=>({...p,name:v}))}} onSelect={r => { handleAuto(r); setAiDesc(r.desc||""); }}/>
+        {aiDesc && <div style={{ fontSize:11, color:"#52525b", lineHeight:1.6, padding:"10px 12px", background:"rgba(45,212,191,0.03)", border:"1px solid rgba(45,212,191,0.08)", marginBottom:14 }}>{aiDesc}</div>}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
           <div style={{marginBottom:14}}><label style={LS}>Dose</label><input type="number" value={f.dose} onChange={e=>setF(p=>({...p,dose:e.target.value}))} style={IS}/></div>
           <div style={{marginBottom:14}}><label style={LS}>Unit</label><input value={f.unit} onChange={e=>setF(p=>({...p,unit:e.target.value}))} style={IS}/></div>
@@ -939,7 +1075,7 @@ function StackView({ compounds, cycleId, onAdd, onEdit, onRemove }) {
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}><span style={LS}>Titration</span><button onClick={()=>setTf(p=>[...p,{week:(p.length?Number(p[p.length-1].week)+1:1),dose:""}])} style={{ fontSize:10, color:T, background:"transparent", border:"none", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", fontWeight:600 }}>+ Step</button></div>
           {tf.map((t,i)=>(<div key={i} style={{ display:"grid", gridTemplateColumns:"50px 1fr 28px", gap:8, marginBottom:6, alignItems:"center" }}><input type="number" placeholder="Wk" value={t.week} onChange={e=>{const v=[...tf];v[i].week=e.target.value;setTf(v)}} style={{...IS,height:32,textAlign:"center",fontSize:11}}/><input type="number" placeholder={`Dose`} value={t.dose} onChange={e=>{const v=[...tf];v[i].dose=e.target.value;setTf(v)}} style={{...IS,height:32,fontSize:11}}/><button onClick={()=>setTf(p=>p.filter((_,j)=>j!==i))} style={{ width:28, height:28, background:"#111114", border:"1px solid #1e1e22", color:"#3f3f46", cursor:"pointer", fontSize:12, display:"flex", alignItems:"center", justifyContent:"center" }}>&times;</button></div>))}
         </div>
-        <button onClick={save} disabled={!f.name||!f.dose} style={{ width:"100%", height:44, background:(!f.name||!f.dose)?"#111114":T, color:(!f.name||!f.dose)?"#27272a":"#000", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:(!f.name||!f.dose)?"default":"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>{modal==="add"?"Add to Stack":"Save Changes"}</button>
+        <button onClick={save} disabled={!f.name||!f.dose||saving} style={{ width:"100%", height:44, background:(!f.name||!f.dose||saving)?"#111114":T, color:(!f.name||!f.dose||saving)?"#27272a":"#000", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:(!f.name||!f.dose||saving)?"default":"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>{saving?"Saving...":(modal==="add"?"Add to Stack":"Save Changes")}</button>
       </Mod>
     </div>
   );
