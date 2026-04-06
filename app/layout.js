@@ -1,10 +1,11 @@
-import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
+import { ClerkProvider } from '@clerk/nextjs';
 
 export const metadata = {
   title: 'Flourish',
   description: 'Compound stack tracker — premium, personalized, powerful.',
   manifest: '/manifest.json',
+  themeColor: '#000000',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -18,7 +19,6 @@ export const viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#000000',
 };
 
 export default function RootLayout({ children }) {

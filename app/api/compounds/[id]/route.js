@@ -1,50 +1,58 @@
-import { requireAuth } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabase';
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth";
+import { createServerClient } from "@/lib/supabase";
 
+// PATCH /api/compounds/[id] — update a compound
 export async function PATCH(request, { params }) {
   try {
-    const { dbUser } = await requireAuth();
+    const userId = await getUserId();
+    const { id } = await params;
     const body = await request.json();
-    const db = supabaseAdmin();
+    const db = createServerClient();
 
-    const allowed = ['name', 'category', 'dose', 'unit', 'frequency', 'status', 'titration', 'notes', 'end_date'];
     const updates = {};
-    for (const key of allowed) {
-      if (body[key] !== undefined) updates[key] = body[key];
-    }
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.dose !== undefined) updates.dose = parseFloat(body.dose);
+    if (body.unit !== undefined) updates.unit = body.unit;
+    if (body.frequency !== undefined) updates.frequency = body.frequency;
+    if (body.category !== undefined) updates.category = body.category;
+    if (body.status !== undefined) updates.status = body.status;
+    if (body.titration !== undefined) updates.titration = body.titration;
 
     const { data, error } = await db
-      .from('compounds')
+      .from("cycle_compounds")
       .update(updates)
-      .eq('id', params.id)
-      .eq('user_id', dbUser.id)
+      .eq("id", id)
+      .eq("user_id", userId)
       .select()
       .single();
 
     if (error) throw error;
-    return NextResponse.json(data);
-  } catch (e) {
-    if (e instanceof Response) return e;
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ compound: data });
+  } catch (error) {
+    console.error("Compound PATCH error:", error);
+    if (error.message === "Unauthorized") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }
 
+// DELETE /api/compounds/[id]
 export async function DELETE(request, { params }) {
   try {
-    const { dbUser } = await requireAuth();
-    const db = supabaseAdmin();
+    const userId = await getUserId();
+    const { id } = await params;
+    const db = createServerClient();
 
     const { error } = await db
-      .from('compounds')
+      .from("cycle_compounds")
       .delete()
-      .eq('id', params.id)
-      .eq('user_id', dbUser.id);
+      .eq("id", id)
+      .eq("user_id", userId);
 
     if (error) throw error;
     return NextResponse.json({ success: true });
-  } catch (e) {
-    if (e instanceof Response) return e;
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (error) {
+    if (error.message === "Unauthorized") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }
