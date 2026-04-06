@@ -6,6 +6,7 @@ import {
   buildSystemPrompt,
   formatMessagesForClaude,
 } from "@/lib/context";
+import { extractFromChat } from "@/lib/memory";
 
 // ══════════════════════════════════════════════════════════════
 // POST /api/ai
@@ -16,13 +17,12 @@ import {
 //   3. Build grounded system prompt
 //   4. Call Claude with context + chat history + new message
 //   5. Store user message + assistant response
-//   6. Optionally extract memories and insights
+//   6. Extract memories (async, non-blocking)
 //   7. Return the response
 // ══════════════════════════════════════════════════════════════
 
 export async function POST(request) {
   try {
-    // 1. Auth
     const userId = await getUserId();
     const body = await request.json();
     const { message, threadId, extractMemory = true } = body;
@@ -33,10 +33,9 @@ export async function POST(request) {
 
     const db = createServerClient();
 
-    // 2. Get or create chat thread
+    // Get or create thread
     let activeThreadId = threadId;
     if (!activeThreadId) {
-      // Check for existing active thread
       const { data: existingThread } = await db
         .from("chat_threads")
         .select("id")
@@ -49,7 +48,6 @@ export async function POST(request) {
       if (existingThread) {
         activeThreadId = existingThread.id;
       } else {
-        // Create new thread
         const { data: newThread } = await db
           .from("chat_threads")
           .insert({ user_id: userId, title: message.slice(0, 60) })
@@ -59,7 +57,7 @@ export async function POST(request) {
       }
     }
 
-    // 3. Retrieve full user context
+    // Retrieve full user context
     const context = await retrieveUserContext(userId, {
       includeChat: true,
       chatThreadId: activeThreadId,
@@ -70,11 +68,10 @@ export async function POST(request) {
       includeTraining: true,
     });
 
-    // 4. Build the prompt
+    // Build prompt + call Claude
     const systemPrompt = buildSystemPrompt(context);
     const messages = formatMessagesForClaude(context.chatHistory, message);
 
-    // 5. Call Claude
     const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -103,8 +100,8 @@ export async function POST(request) {
     const assistantMessage =
       claudeData.content?.map((block) => block.text || "").join("") || "";
 
-    // 6. Store messages
-    const messagesToStore = [
+    // Store messages
+    await db.from("chat_messages").insert([
       {
         thread_id: activeThreadId,
         user_id: userId,
@@ -126,17 +123,14 @@ export async function POST(request) {
           alertCount: context.alerts.length,
         },
       },
-    ];
+    ]);
 
-    await db.from("chat_messages").insert(messagesToStore);
-
-    // 7. Extract memories (async — don't block the response)
+    // Extract memories async (non-blocking)
     if (extractMemory) {
-      extractMemoriesFromChat(db, userId, message, assistantMessage, context)
+      extractFromChat(userId, message, assistantMessage, context)
         .catch((err) => console.error("Memory extraction failed:", err));
     }
 
-    // 8. Return
     return NextResponse.json({
       message: assistantMessage,
       threadId: activeThreadId,
@@ -145,99 +139,9 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("AI route error:", error);
-
     if (error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// MEMORY EXTRACTION
-//
-// After each conversation turn, ask Claude to identify any
-// persistent facts worth remembering. This runs asynchronously
-// so it doesn't slow down the chat response.
-// ══════════════════════════════════════════════════════════════
-
-async function extractMemoriesFromChat(db, userId, userMsg, assistantMsg, context) {
-  try {
-    // Only extract from substantive conversations
-    if (userMsg.length < 20 && assistantMsg.length < 100) return;
-
-    // Build extraction prompt
-    const existingMemories = context.memory
-      .map((m) => `[${m.category}] ${m.fact}`)
-      .join("\n");
-
-    const extractionResponse = await fetch(
-      "https://api.anthropic.com/v1/messages",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": process.env.ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 500,
-          system: `You extract persistent facts about a user from their conversations with a health/fitness tracking assistant. 
-
-EXISTING MEMORIES (do not duplicate these):
-${existingMemories || "(none yet)"}
-
-Extract NEW facts only. Categories: routine, goal, constraint, preference, health_pattern, decision, context.
-
-Respond ONLY with a JSON array. No markdown, no explanation. If nothing new to extract, respond with [].
-Format: [{"category":"...","content":"...","confidence":0.8}]`,
-          messages: [
-            {
-              role: "user",
-              content: `USER said: "${userMsg}"\n\nASSISTANT replied: "${assistantMsg.slice(0, 500)}"`,
-            },
-          ],
-        }),
-      }
-    );
-
-    if (!extractionResponse.ok) return;
-
-    const extractionData = await extractionResponse.json();
-    const text =
-      extractionData.content?.map((b) => b.text || "").join("") || "[]";
-
-    let memories;
-    try {
-      memories = JSON.parse(text.replace(/```json|```/g, "").trim());
-    } catch {
-      return; // Failed to parse — skip silently
-    }
-
-    if (!Array.isArray(memories) || memories.length === 0) return;
-
-    // Store new memories
-    const rows = memories
-      .filter((m) => m.content && m.category)
-      .slice(0, 5) // max 5 per turn
-      .map((m) => ({
-        user_id: userId,
-        category: m.category,
-        content: m.content,
-        confidence: Math.min(1, Math.max(0, m.confidence || 0.7)),
-        source_type: "chat",
-      }));
-
-    if (rows.length > 0) {
-      await db.from("agent_memory").insert(rows);
-    }
-  } catch (err) {
-    // Non-critical — log and move on
-    console.error("Memory extraction error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
