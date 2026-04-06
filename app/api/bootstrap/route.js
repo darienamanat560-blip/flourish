@@ -2,23 +2,16 @@ import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
 import { createServerClient } from "@/lib/supabase";
 
-// ══════════════════════════════════════════════════════════════
 // GET /api/bootstrap
-//
 // Single endpoint the frontend calls on mount to load everything
-// it needs for the home page. Much faster than 10 separate fetches.
-// ══════════════════════════════════════════════════════════════
-
 export async function GET() {
   try {
     const userId = await getUserId();
     const db = createServerClient();
 
-    // Fire all queries in parallel
     const [
       profileResult,
       cycleResult,
-      compoundsResult,
       logsResult,
       trainingResult,
       prsResult,
@@ -26,6 +19,7 @@ export async function GET() {
       insightsResult,
       memoryResult,
       allCyclesResult,
+      panelsResult,
     ] = await Promise.all([
       db.from("profiles").select("*").eq("id", userId).single(),
       db.from("cycles")
@@ -35,8 +29,6 @@ export async function GET() {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      // Compounds will be fetched after we know the cycle ID
-      Promise.resolve({ data: [] }),
       db.from("daily_logs")
         .select("*")
         .eq("user_id", userId)
@@ -72,9 +64,14 @@ export async function GET() {
         .select("id, name, status, goals, start_date, planned_weeks")
         .eq("user_id", userId)
         .order("created_at", { ascending: false }),
+      db.from("blood_panels")
+        .select("*")
+        .eq("user_id", userId)
+        .order("date", { ascending: false })
+        .limit(10),
     ]);
 
-    // Now fetch compounds for the active cycle
+    // Compounds for active cycle
     let compounds = [];
     if (cycleResult.data?.id) {
       const { data } = await db
@@ -83,6 +80,22 @@ export async function GET() {
         .eq("cycle_id", cycleResult.data.id)
         .order("created_at", { ascending: true });
       compounds = data || [];
+    }
+
+    // Markers for recent panels
+    let panels = panelsResult.data || [];
+    if (panels.length > 0) {
+      const { data: allMarkers } = await db
+        .from("blood_panel_markers")
+        .select("*")
+        .in("blood_panel_id", panels.map(p => p.id));
+
+      const byPanel = {};
+      (allMarkers || []).forEach(m => {
+        if (!byPanel[m.blood_panel_id]) byPanel[m.blood_panel_id] = [];
+        byPanel[m.blood_panel_id].push(m);
+      });
+      panels = panels.map(p => ({ ...p, markers: byPanel[p.id] || [] }));
     }
 
     // Group memory by category
@@ -105,12 +118,11 @@ export async function GET() {
       insights: insightsResult.data || [],
       memory,
       memoryByCategory,
+      panels,
     });
   } catch (error) {
     console.error("Bootstrap error:", error);
-    if (error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (error.message === "Unauthorized") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     return NextResponse.json({ error: "Failed to load data" }, { status: 500 });
   }
 }
