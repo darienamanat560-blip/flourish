@@ -3,54 +3,15 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import { useFlourish } from "@/lib/useFlourish";
 import { useChat } from "@/lib/useChat";
+import { StateView } from "@/components/StateView";
+import { LabsView } from "@/components/LabsView";
+import { SymptomsView } from "@/components/SymptomsView";
+import { AddCompoundView } from "@/components/AddCompoundView";
+import { WhatChangedView } from "@/components/WhatChangedView";
+import { TimelineView } from "@/components/TimelineView";
 
 const T = "#2dd4bf";
 
-// ══════════════════════════════════════
-// SHARED CONSTANTS
-// ══════════════════════════════════════
-
-const CDB = [
-  { name:"BPC-157", unit:"mcg", cat:"recovery", dose:250, freq:"daily" },
-  { name:"TB-500", unit:"mcg", cat:"recovery", dose:2500, freq:"2x/week" },
-  { name:"GHK-Cu", unit:"mcg", cat:"recovery", dose:200, freq:"daily" },
-  { name:"HGH", unit:"IU", cat:"growth", dose:4, freq:"daily" },
-  { name:"CJC-1295/Ipamorelin", unit:"mcg", cat:"growth", dose:300, freq:"daily" },
-  { name:"Ipamorelin", unit:"mcg", cat:"growth", dose:200, freq:"daily" },
-  { name:"MK-677", unit:"mg", cat:"growth", dose:25, freq:"daily" },
-  { name:"Tesamorelin", unit:"mg", cat:"growth", dose:2, freq:"daily" },
-  { name:"Retatrutide", unit:"mg", cat:"metabolic", dose:2, freq:"weekly" },
-  { name:"Semaglutide", unit:"mg", cat:"metabolic", dose:0.5, freq:"weekly" },
-  { name:"Tirzepatide", unit:"mg", cat:"metabolic", dose:5, freq:"weekly" },
-  { name:"Injectable L-Carnitine", unit:"mg", cat:"metabolic", dose:500, freq:"daily" },
-  { name:"T3 (Cytomel)", unit:"mcg", cat:"metabolic", dose:25, freq:"daily" },
-  { name:"Testosterone", unit:"mg", cat:"anabolic", dose:200, freq:"weekly" },
-  { name:"Testosterone Cypionate", unit:"mg", cat:"anabolic", dose:200, freq:"weekly" },
-  { name:"Testosterone Enanthate", unit:"mg", cat:"anabolic", dose:200, freq:"weekly" },
-  { name:"Nandrolone (Deca)", unit:"mg", cat:"anabolic", dose:200, freq:"weekly" },
-  { name:"Anavar", unit:"mg", cat:"anabolic", dose:20, freq:"daily" },
-  { name:"Primobolan", unit:"mg", cat:"anabolic", dose:200, freq:"weekly" },
-  { name:"Masteron", unit:"mg", cat:"anabolic", dose:200, freq:"weekly" },
-  { name:"Trenbolone", unit:"mg", cat:"anabolic", dose:200, freq:"weekly" },
-  { name:"Winstrol", unit:"mg", cat:"anabolic", dose:25, freq:"daily" },
-  { name:"Dianabol", unit:"mg", cat:"anabolic", dose:30, freq:"daily" },
-  { name:"HCG", unit:"IU", cat:"ancillary", dose:500, freq:"EOD" },
-  { name:"Aromasin", unit:"mg", cat:"ancillary", dose:12.5, freq:"EOD" },
-  { name:"Arimidex", unit:"mg", cat:"ancillary", dose:0.5, freq:"EOD" },
-  { name:"Nolvadex", unit:"mg", cat:"ancillary", dose:20, freq:"daily" },
-  { name:"Clomid", unit:"mg", cat:"ancillary", dose:25, freq:"daily" },
-  { name:"Enclomiphene", unit:"mg", cat:"ancillary", dose:12.5, freq:"daily" },
-  { name:"RAD-140", unit:"mg", cat:"SARM", dose:10, freq:"daily" },
-  { name:"LGD-4033", unit:"mg", cat:"SARM", dose:10, freq:"daily" },
-  { name:"Ostarine", unit:"mg", cat:"SARM", dose:20, freq:"daily" },
-  { name:"Cardarine", unit:"mg", cat:"SARM", dose:10, freq:"daily" },
-  { name:"Selank", unit:"mcg", cat:"nootropic", dose:300, freq:"daily" },
-  { name:"Semax", unit:"mcg", cat:"nootropic", dose:600, freq:"daily" },
-  { name:"NAD+", unit:"mg", cat:"longevity", dose:100, freq:"daily" },
-  { name:"Epitalon", unit:"mg", cat:"longevity", dose:5, freq:"daily" },
-];
-
-const CATS = ["growth","metabolic","recovery","anabolic","ancillary","SARM","nootropic","longevity","other"];
 const FREQS = ["daily","EOD","E3D","2x/week","3x/week","weekly","biweekly","as needed"];
 const GOALS = ["Body recomposition","Fat loss","Lean mass gain","Strength","Recovery & healing","Cognitive enhancement","Longevity","Hormone optimization"];
 const LIFTS = ["Bench Press","Squat","Deadlift","Overhead Press","Barbell Row","Front Squat","Romanian Deadlift","Incline Bench"];
@@ -58,43 +19,19 @@ const CARDIO = ["Running","Cycling","Rowing","Swimming","Stairmaster"];
 
 function td() { return new Date().toISOString().split("T")[0]; }
 function fmtDate(d) { if (!d) return ""; return new Date(d + "T12:00:00").toLocaleDateString("en-US", { month:"short", day:"numeric" }); }
-function daw(c, w) { if (!c.titration?.length) return c.dose; let d = c.titration[0].dose; for (const t of c.titration) { if (t.week <= w) d = t.dose; } return d; }
 
-// Transform Supabase snake_case rows to camelCase for UI consumption
 function normalizeLog(l) {
-  return {
-    id: l.id, date: l.date,
-    weight: l.weight, sleep: l.sleep_score, hrv: l.hrv,
-    mood: l.mood, stress: l.stress, appetite: l.appetite, energy: l.energy,
-    sideEffects: l.side_effects, physique: l.physique_notes,
-    doses: l.doses || {},
-  };
+  return { id: l.id, date: l.date, weight: l.weight, sleep: l.sleep_score, hrv: l.hrv, mood: l.mood, stress: l.stress, appetite: l.appetite, energy: l.energy, sideEffects: l.side_effects, physique: l.physique_notes, doses: l.doses || {} };
 }
-
 function normalizeCompound(c) {
-  return {
-    id: c.id, name: c.name, dose: c.dose, unit: c.unit,
-    freq: c.frequency, frequency: c.frequency,
-    status: c.status, category: c.category,
-    titration: c.titration || [],
-  };
+  return { id: c.id, name: c.name, dose: c.dose, unit: c.unit, freq: c.frequency, frequency: c.frequency, status: c.status, category: c.category, titration: c.titration || [] };
 }
-
 function normalizeTraining(t) {
-  return {
-    id: t.id, date: t.date, type: t.type, exercise: t.exercise,
-    sets: t.sets, duration: t.duration_minutes, distance: t.distance,
-    estimated1RM: t.estimated_1rm, isPR: t.is_pr,
-    activeCompounds: t.active_compounds || [],
-  };
+  return { id: t.id, date: t.date, type: t.type, exercise: t.exercise, sets: t.sets, duration: t.duration_minutes, distance: t.distance, estimated1RM: t.estimated_1rm, isPR: t.is_pr, activeCompounds: t.active_compounds || [] };
 }
-
-// ══════════════════════════════════════
-// SHARED STYLES
-// ══════════════════════════════════════
 
 const LS = { display:"block", fontSize:10, fontWeight:600, color:"#52525b", textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:6, fontFamily:"'JetBrains Mono',monospace" };
-const IS = { width:"100%", height:42, background:"rgba(255,255,255,0.02)", border:"1px solid #1e1e22", padding:"0 14px", color:"#e4e4e7", fontSize:13, fontFamily:"'JetBrains Mono',monospace", transition:"border-color .2s" };
+const IS = { width:"100%", height:42, background:"rgba(255,255,255,0.02)", border:"1px solid #1e1e22", padding:"0 14px", color:"#e4e4e7", fontSize:13, fontFamily:"'JetBrains Mono',monospace" };
 const HS = { fontSize:22, fontWeight:700, color:"#fff", fontFamily:"'Inter',sans-serif", margin:0, letterSpacing:"-0.02em" };
 
 function Sp({ data, h = 28 }) {
@@ -131,34 +68,6 @@ function Mod({ open, onClose, title, children, fullHeight = false }) {
   );
 }
 
-function AC({ value, onChange, onSelect }) {
-  const [open, setOpen] = useState(false);
-  const [res, setRes] = useState([]);
-  const ref = useRef(null);
-  useEffect(() => { if (value?.length > 0) { setRes(CDB.filter(c => c.name.toLowerCase().includes(value.toLowerCase())).slice(0, 8)); setOpen(true); } else { setOpen(false); setRes([]); } }, [value]);
-  useEffect(() => { const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
-  return (
-    <div ref={ref} style={{ position:"relative", marginBottom:14 }}>
-      <label style={LS}>Compound Name</label>
-      <input type="text" value={value || ""} onChange={e => onChange(e.target.value)} onFocus={() => { if (res.length) setOpen(true); }} placeholder="Start typing..." style={IS} />
-      {open && res.length > 0 && (
-        <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:200, marginTop:2, background:"#0a0a0c", border:"1px solid #1e1e22", maxHeight:260, overflowY:"auto", boxShadow:"0 16px 48px rgba(0,0,0,0.8)" }}>
-          {res.map((r, i) => (
-            <button key={i} onClick={() => { onSelect(r); setOpen(false); }} style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 14px", background:"transparent", border:"none", borderBottom:"1px solid #141416", cursor:"pointer", color:"#a1a1aa", textAlign:"left", fontFamily:"'JetBrains Mono',monospace" }}>
-              <div><div style={{ fontSize:13, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{r.name}</div><div style={{ fontSize:10, color:"#3f3f46", marginTop:2 }}>{r.dose} {r.unit} · {r.freq}</div></div>
-              <span style={{ fontSize:9, padding:"2px 8px", background:"rgba(45,212,191,0.06)", color:T, textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:600 }}>{r.cat}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════
-// LOADING SKELETON
-// ══════════════════════════════════════
-
 function Loading() {
   return (
     <div style={{ minHeight:"100vh", background:"#000", color:"#e4e4e7", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'JetBrains Mono',monospace", gap:16 }}>
@@ -170,7 +79,7 @@ function Loading() {
 }
 
 // ══════════════════════════════════════
-// ONBOARDING
+// ONBOARDING (with live AI generation)
 // ══════════════════════════════════════
 
 function Onboarding({ onComplete }) {
@@ -178,32 +87,28 @@ function Onboarding({ onComplete }) {
   const [p, setP] = useState({ name:"", experience:"", age:"", weight:"", goals:[], health:"" });
   const [loading, setLoading] = useState(false);
   const [rec, setRec] = useState(null);
-
-  const fallback = () => {
-    const b = p.experience === "beginner";
-    const fat = p.goals.some(g => g.includes("Fat") || g.includes("recomp"));
-    const mass = p.goals.some(g => g.includes("mass") || g.includes("Strength"));
-    let c = [
-      { name:"Testosterone", dose:b?150:200, unit:"mg", freq:"weekly", cat:"anabolic" },
-      { name:"HCG", dose:500, unit:"IU", freq:"EOD", cat:"ancillary" },
-      { name:"Aromasin", dose:12.5, unit:"mg", freq:"EOD", cat:"ancillary" },
-    ];
-    if (fat) c.push({ name:"Retatrutide", dose:b?1:2, unit:"mg", freq:"weekly", cat:"metabolic" });
-    if (mass) c.push({ name:"Anavar", dose:b?10:20, unit:"mg", freq:"daily", cat:"anabolic" });
-    c.push({ name:"HGH", dose:b?3:5, unit:"IU", freq:"daily", cat:"growth" });
-    return { cycleName: fat?"Recomp Protocol":"Optimization Protocol", compounds:c.slice(0,6), summary:`${p.experience} protocol targeting ${p.goals.slice(0,2).join(" and ").toLowerCase()}.` };
-  };
+  const [error, setError] = useState(null);
 
   const generate = async () => {
     setLoading(true);
-    // Skip the direct Anthropic call from browser — go through our API instead
-    // For now just use the smart fallback since we don't have a public generate endpoint
-    setTimeout(() => { setRec(fallback()); setLoading(false); }, 800);
+    setError(null);
+    try {
+      const res = await fetch("/api/onboarding/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(p),
+      });
+      if (!res.ok) throw new Error("Failed to generate protocol");
+      const data = await res.json();
+      setRec(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const finish = async () => {
-    await onComplete({ profile: p, cycle: rec });
-  };
+  const finish = async () => { await onComplete({ profile: p, cycle: rec }); };
 
   const titles = ["Welcome to Flourish.", "About You", "Your Goals", "Health & History", "Your Protocol"];
   const subs = ["Let's personalize your experience.", "Stats for tailored recommendations.", "What are you optimizing for?", "For safe recommendations.", "Built for you."];
@@ -221,7 +126,7 @@ function Onboarding({ onComplete }) {
               <svg width="16" height="22" viewBox="0 0 24 34" fill="none"><rect x="6" y="1" width="12" height="5" rx="1" fill={T}/><path d="M7 6V9H17V6" stroke={T} strokeWidth="1.5" fill="none"/><path d="M7 9V28C7 30.76 9.24 33 12 33C14.76 33 17 30.76 17 28V9" stroke={T} strokeWidth="1.5" fill="none"/><path d="M8.5 18V28C8.5 29.93 10.07 31.5 12 31.5C13.93 31.5 15.5 29.93 15.5 28V18H8.5Z" fill={T}/></svg>
               <span style={{ fontSize:16, fontFamily:"'Inter',sans-serif", color:"#fff" }}><b>flour</b><span style={{ fontWeight:300 }}>ish</span></span>
             </div>
-            <p style={{ fontSize:12, color:"#52525b", lineHeight:1.7, margin:0 }}>Personalized compound protocols, training tracking, and AI-powered insights.</p>
+            <p style={{ fontSize:12, color:"#52525b", lineHeight:1.7, margin:0 }}>Personalized protocols, AI-powered insights, grounded in your actual data.</p>
           </div>
           <div style={{ marginBottom:14 }}><label style={LS}>Your name</label><input placeholder="Name" value={p.name} onChange={e=>setP(x=>({...x,name:e.target.value}))} style={IS}/></div>
           <button onClick={()=>setStep(1)} disabled={!p.name} style={{ width:"100%", height:44, background:p.name?T:"#111114", color:p.name?"#000":"#3f3f46", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:p.name?"pointer":"default", letterSpacing:"0.08em", textTransform:"uppercase" }}>Get Started</button>
@@ -265,16 +170,46 @@ function Onboarding({ onComplete }) {
         </div>)}
 
         {step === 4 && (<div>
-          {loading ? (<div style={{ textAlign:"center", padding:40 }}><div style={{ width:28, height:28, border:"2px solid #1e1e22", borderTopColor:T, borderRadius:"50%", margin:"0 auto 16px", animation:"spin .7s linear infinite" }}/><p style={{ fontSize:12, color:"#3f3f46" }}>Building protocol...</p></div>
+          {loading ? (<div style={{ textAlign:"center", padding:40 }}>
+            <div style={{ width:28, height:28, border:"2px solid #1e1e22", borderTopColor:T, borderRadius:"50%", margin:"0 auto 16px", animation:"spin .7s linear infinite" }}/>
+            <p style={{ fontSize:12, color:"#a1a1aa", marginBottom:6, fontFamily:"'Inter',sans-serif", fontWeight:600 }}>Building your protocol...</p>
+            <p style={{ fontSize:10, color:"#52525b" }}>AI is analyzing your profile. 5-15 seconds.</p>
+          </div>
+          ) : error ? (<div>
+            <div className="c" style={{ padding:18, marginBottom:14, borderColor:"rgba(239,68,68,0.2)" }}>
+              <p style={{ fontSize:12, color:"#f87171", margin:0 }}>{error}</p>
+            </div>
+            <button onClick={generate} style={{ width:"100%", height:44, background:T, color:"#000", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>Try Again</button>
+          </div>
           ) : rec ? (<div>
-            <div className="c" style={{ padding:18, marginBottom:20, borderColor:"rgba(45,212,191,0.15)" }}>
+            <div className="c" style={{ padding:18, marginBottom:16, borderColor:"rgba(45,212,191,0.15)" }}>
               <div style={{ fontSize:9, color:T, textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:4 }}>Recommended Cycle</div>
               <div style={{ fontSize:18, fontWeight:700, color:"#fff", fontFamily:"'Inter',sans-serif" }}>{rec.cycleName}</div>
-              <p style={{ fontSize:11, color:"#52525b", marginTop:6, lineHeight:1.6 }}>{rec.summary}</p>
+              <p style={{ fontSize:11, color:"#a1a1aa", marginTop:6, lineHeight:1.6 }}>{rec.summary}</p>
+              {rec.rationale && (
+                <div style={{ marginTop:12, paddingTop:12, borderTop:"1px solid #141416" }}>
+                  <div style={{ fontSize:9, color:"#52525b", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Rationale</div>
+                  <p style={{ fontSize:11, color:"#71717a", margin:0, lineHeight:1.6 }}>{rec.rationale}</p>
+                </div>
+              )}
             </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:20 }}>
-              {rec.compounds.map((c,i)=>(<div key={i} className="c" style={{ padding:"13px 16px" }}><div style={{ display:"flex", justifyContent:"space-between" }}><span style={{ fontSize:13, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{c.name}</span><span style={{ fontSize:10, color:"#3f3f46" }}>{c.dose} {c.unit} · {c.freq}</span></div></div>))}
+            <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:16, maxHeight:280, overflowY:"auto" }}>
+              {rec.compounds.map((c,i)=>(<div key={i} className="c" style={{ padding:"12px 14px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: c.reason ? 4 : 0 }}>
+                  <span style={{ fontSize:13, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{c.name}</span>
+                  <span style={{ fontSize:10, color:"#3f3f46" }}>{c.dose} {c.unit} · {c.freq}</span>
+                </div>
+                {c.reason && <p style={{ fontSize:10, color:"#52525b", margin:"4px 0 0", lineHeight:1.5 }}>{c.reason}</p>}
+              </div>))}
             </div>
+            {rec.warnings?.length > 0 && (
+              <div className="c" style={{ padding:12, marginBottom:16, borderColor:"rgba(234,179,8,0.15)", background:"rgba(234,179,8,0.02)" }}>
+                <div style={{ fontSize:9, color:"#fbbf24", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:5 }}>Watch for</div>
+                <ul style={{ fontSize:10, color:"#a1a1aa", margin:0, paddingLeft:14, lineHeight:1.6 }}>
+                  {rec.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              </div>
+            )}
             <button onClick={finish} style={{ width:"100%", height:44, background:T, color:"#000", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>Start This Protocol</button>
           </div>) : null}
         </div>)}
@@ -287,13 +222,11 @@ function Onboarding({ onComplete }) {
 // CHAT VIEW
 // ══════════════════════════════════════
 
-function ChatView({ messages, sending, onSend, onNewConversation }) {
+function ChatView({ messages, sending, onSend }) {
   const [input, setInput] = useState("");
   const scrollRef = useRef(null);
 
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, sending]);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, sending]);
 
   const handleSend = (e) => {
     e?.preventDefault();
@@ -310,9 +243,9 @@ function ChatView({ messages, sending, onSend, onNewConversation }) {
             <svg width="18" height="18" fill="none" stroke={T} strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
           </div>
           <div style={{ fontSize:15, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif", marginBottom:6 }}>Ask Flourish anything</div>
-          <p style={{ fontSize:11, color:"#52525b", maxWidth:260, lineHeight:1.6, margin:0 }}>Your compounds, metrics, training, and bloodwork are in context. Be specific.</p>
+          <p style={{ fontSize:11, color:"#52525b", maxWidth:260, lineHeight:1.6, margin:0 }}>Your compounds, metrics, bloodwork, and computed state are in context.</p>
           <div style={{ display:"flex", flexDirection:"column", gap:6, marginTop:20, width:"100%", maxWidth:280 }}>
-            {["How am I progressing toward my goals?", "Any concerns with my current stack?", "What should I watch on my next bloodwork?"].map((s, i) => (
+            {["How am I progressing toward my goals?", "Any concerns with my current stack?", "What should I watch on next bloodwork?"].map((s, i) => (
               <button key={i} onClick={() => onSend(s)} disabled={sending} className="c" style={{ padding:"10px 14px", fontSize:11, color:"#71717a", textAlign:"left", cursor:sending?"default":"pointer", fontFamily:"'JetBrains Mono',monospace" }}>{s}</button>
             ))}
           </div>
@@ -353,15 +286,16 @@ function FlourishApp() {
   const chat = useChat();
 
   const [tab, setTab] = useState("home");
-  const [detailId, setDetailId] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
-  const [addSv, setAddSv] = useState("");
+  const [addCompoundOpen, setAddCompoundOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [whatChangedOpen, setWhatChangedOpen] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [trainOpen, setTrainOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [todayDoses, setTodayDoses] = useState({});
 
-  // Normalize backend data for UI consumption
   const compounds = useMemo(() => (f.data.compounds || []).map(normalizeCompound), [f.data.compounds]);
   const logs = useMemo(() => (f.data.logs || []).map(normalizeLog), [f.data.logs]);
   const training = useMemo(() => (f.data.training || []).map(normalizeTraining), [f.data.training]);
@@ -371,7 +305,6 @@ function FlourishApp() {
 
   if (f.loading) return <Loading />;
 
-  // Not onboarded yet
   if (!f.data.profile?.onboarded) {
     return <Onboarding onComplete={async ({ profile, cycle }) => {
       await f.saveProfile({ ...profile, onboarded: true });
@@ -379,7 +312,7 @@ function FlourishApp() {
         await f.createCycle({
           name: cycle.cycleName,
           goals: profile.goals,
-          weeks: 12,
+          weeks: cycle.suggestedWeeks || 12,
           compounds: cycle.compounds,
           aiGenerated: true,
         });
@@ -388,60 +321,12 @@ function FlourishApp() {
     }} />;
   }
 
-  // Compound detail page
-  if (detailId) {
-    const comp = compounds.find(c => c.id === detailId);
-    if (!comp) { setDetailId(null); return null; }
-    const db = CDB.find(c => c.name === comp.name);
-    const used = logs.filter(l => l.doses?.[comp.id]);
-    const total = used.reduce((s, l) => s + (Number(l.doses[comp.id]) || 0), 0);
-    const sides = [...new Set(used.flatMap(l => (l.sideEffects || "").split(",").map(s=>s.trim()).filter(Boolean)))];
-
-    return (
-      <div style={{ minHeight:"100vh", background:"#000", color:"#e4e4e7", fontFamily:"'JetBrains Mono',monospace" }}>
-        <header style={{ position:"sticky", top:0, zIndex:50, background:"rgba(0,0,0,0.94)", backdropFilter:"blur(16px)", borderBottom:"1px solid #1e1e22", padding:"14px 20px" }}>
-          <div style={{ maxWidth:560, margin:"0 auto" }}>
-            <button onClick={() => setDetailId(null)} style={{ background:"transparent", border:"none", cursor:"pointer", color:"#52525b", display:"flex", alignItems:"center", gap:6, fontFamily:"'JetBrains Mono',monospace", fontSize:11 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Back
-            </button>
-          </div>
-        </header>
-        <div style={{ maxWidth:560, margin:"0 auto", padding:"24px 20px 40px" }}>
-          <div style={{ marginBottom:28 }}>
-            <div style={{ fontSize:10, color:T, textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:6 }}>{comp.category}</div>
-            <h1 style={{ fontSize:28, fontWeight:700, color:"#fff", fontFamily:"'Inter',sans-serif", margin:"0 0 6px" }}>{comp.name}</h1>
-            <div style={{ fontSize:12, color:"#3f3f46" }}>{comp.dose} {comp.unit} · {comp.freq}</div>
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:24 }}>
-            {[{v:used.length,l:"Log Entries"},{v:total,l:`Total ${comp.unit}`},{v:comp.titration?.length||0,l:"Titrations"}].map((m,i)=>(
-              <div key={i} className="c" style={{ padding:"14px 16px", textAlign:"center" }}>
-                <div style={{ fontSize:22, fontWeight:700, color:"#fff", fontFamily:"'Inter',sans-serif" }}>{m.v}</div>
-                <div style={{ fontSize:9, color:"#3f3f46", marginTop:4 }}>{m.l}</div>
-              </div>
-            ))}
-          </div>
-          {comp.titration?.length > 0 && (<div style={{ marginBottom:24 }}><div style={LS}>Titration Protocol</div><div className="c" style={{ padding:16 }}>
-            {comp.titration.map((t,i)=>{const mx=comp.dose||Math.max(...comp.titration.map(x=>x.dose));const pct=mx?Math.min(100,(t.dose/mx)*100):0;return(
-              <div key={i} style={{ display:"grid", gridTemplateColumns:"42px 1fr 52px", gap:8, alignItems:"center", padding:"5px 0" }}>
-                <span style={{ fontSize:11, color:"#3f3f46" }}>Wk {t.week}</span>
-                <div style={{ height:3, background:"#141416", borderRadius:2, overflow:"hidden" }}><div style={{ height:"100%", width:`${pct}%`, background:T, opacity:0.5, borderRadius:2 }}/></div>
-                <span style={{ fontSize:12, fontWeight:600, color:"#52525b", textAlign:"right" }}>{t.dose} {comp.unit}</span>
-              </div>
-            );})}
-          </div></div>)}
-          {sides.length > 0 && (<div style={{ marginBottom:24 }}><div style={LS}>Side Effects Experienced</div><div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>{sides.map((s,i)=><span key={i} style={{ fontSize:9, padding:"4px 10px", background:"rgba(239,68,68,0.06)", color:"#f87171", border:"1px solid rgba(239,68,68,0.1)" }}>{s}</span>)}</div></div>)}
-          {used.length > 0 && (<div><div style={LS}>Dose History</div>{used.slice(0, 6).map((l,i)=>(<div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid #141416" }}><span style={{ fontSize:11, color:"#3f3f46" }}>{fmtDate(l.date)}</span><span style={{ fontSize:12, color:"#a1a1aa", fontWeight:600 }}>{l.doses[comp.id]} {comp.unit}</span></div>))}</div>)}
-        </div>
-      </div>
-    );
-  }
-
   const TABS = [
     { id:"home", label:"Home", d:"M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1" },
     { id:"log", label:"Log", d:"M12 4v16m8-8H4" },
-    { id:"train", label:"Train", d:"M13 10V3L4 14h7v7l9-11h-7z" },
+    { id:"labs", label:"Labs", d:"M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16M5 21h14M9 7h.01M9 11h.01M9 15h.01M13 7h2M13 11h2M13 15h2" },
+    { id:"symptoms", label:"Symptoms", d:"M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" },
     { id:"stack", label:"Stack", d:"M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" },
-    { id:"history", label:"History", d:"M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
   ];
 
   return (
@@ -453,6 +338,9 @@ function FlourishApp() {
             <div><div style={{ fontSize:15, letterSpacing:"0.1em", color:"#fff", fontFamily:"'Inter',sans-serif" }}><span style={{ fontWeight:700 }}>flour</span><span style={{ fontWeight:300 }}>ish</span></div><div style={{ fontSize:8, letterSpacing:"0.12em", textTransform:"uppercase", color:"#3f3f46", marginTop:-1 }}>{cy?.name || "No active cycle"}</div></div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <button onClick={() => setChatOpen(true)} style={{ width:36, height:36, background:"transparent", border:"1px solid #1e1e22", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#52525b" }}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            </button>
             <button onClick={() => setMenuOpen(true)} style={{ width:36, height:36, background:"transparent", border:"1px solid #1e1e22", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4 }}>
               <div style={{ width:14, height:1.5, background:"#52525b" }}/><div style={{ width:14, height:1.5, background:"#52525b" }}/><div style={{ width:10, height:1.5, background:"#52525b" }}/>
             </button>
@@ -462,23 +350,12 @@ function FlourishApp() {
 
       <div style={{ maxWidth:560, margin:"0 auto", padding:"24px 20px 100px" }}>
         {tab === "home" && (<div>
-          <div style={{ marginBottom:28 }}>
+          <div style={{ marginBottom:24 }}>
             <h1 style={HS}>{f.data.profile?.name ? `Welcome back, ${f.data.profile.name}.` : "Welcome back."}</h1>
             <p style={{ fontSize:11, color:"#3f3f46", marginTop:5 }}>{new Date().toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" })}</p>
-            {cy?.goals?.length > 0 && <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:12 }}>{cy.goals.map((g,i)=><span key={i} style={{ fontSize:9, padding:"3px 9px", border:"1px solid rgba(45,212,191,0.12)", color:T, background:"rgba(45,212,191,0.03)" }}>{g}</span>)}</div>}
           </div>
 
-          {f.data.alerts?.length > 0 && (<div style={{ marginBottom:24 }}>
-            {f.data.alerts.slice(0, 3).map(a => (
-              <div key={a.id} className="c" style={{ padding:"12px 16px", marginBottom:6, borderColor:a.severity === "critical" || a.severity === "high" ? "rgba(239,68,68,0.3)" : "rgba(234,179,8,0.3)" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-                  <span style={{ fontSize:9, padding:"2px 6px", background:a.severity==="critical"||a.severity==="high"?"rgba(239,68,68,0.1)":"rgba(234,179,8,0.1)", color:a.severity==="critical"||a.severity==="high"?"#f87171":"#fbbf24", textTransform:"uppercase", fontWeight:700, letterSpacing:"0.05em" }}>{a.severity}</span>
-                  <span style={{ fontSize:12, fontWeight:600, color:"#fff", fontFamily:"'Inter',sans-serif" }}>{a.title}</span>
-                </div>
-                <p style={{ fontSize:11, color:"#71717a", margin:0, lineHeight:1.5 }}>{a.message}</p>
-              </div>
-            ))}
-          </div>)}
+          <StateView onOpenWhatChanged={() => setWhatChangedOpen(true)} />
 
           {latest && (<div style={{ marginBottom:28 }}><SL>Latest Metrics</SL><div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
             {[{l:"Weight",v:latest.weight,u:"lbs",d:logs.map(x=>x.weight).filter(Boolean).reverse()},{l:"Sleep",v:latest.sleep,u:"score",d:logs.map(x=>x.sleep).filter(Boolean).reverse()},{l:"Mood",v:latest.mood,u:"/10",d:logs.map(x=>x.mood).filter(Boolean).reverse()},{l:"HRV",v:latest.hrv,u:"ms",d:logs.map(x=>x.hrv).filter(Boolean).reverse()}].map((m,i)=>(
@@ -492,10 +369,10 @@ function FlourishApp() {
 
           <div style={{ marginBottom:28 }}><SL>Quick Actions</SL><div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
             {[
-              {l:"Add Compound",icon:"M12 4v16m8-8H4",fn:()=>setAddOpen(true)},
-              {l:"Ask Flourish",icon:"M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",fn:()=>setChatOpen(true)},
-              {l:"Log Training",icon:"M13 10V3L4 14h7v7l9-11h-7z",fn:()=>setTab("train")},
-              {l:"Memory",icon:"M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",fn:()=>setMemoryOpen(true)},
+              {l:"Add Compound",icon:"M12 4v16m8-8H4",fn:()=>setAddCompoundOpen(true)},
+              {l:"Log Training",icon:"M13 10V3L4 14h7v7l9-11h-7z",fn:()=>setTrainOpen(true)},
+              {l:"Timeline",icon:"M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",fn:()=>setTimelineOpen(true)},
+              {l:"Memory",icon:"M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",fn:()=>setMemoryOpen(true)},
             ].map((b,i)=>(
               <button key={i} className="ab" onClick={b.fn} style={{ padding:"18px 16px", textAlign:"left", fontFamily:"'JetBrains Mono',monospace", display:"flex", flexDirection:"column", gap:10 }}>
                 <div className="gl"/>
@@ -510,19 +387,19 @@ function FlourishApp() {
             {active.length === 0 ? (
               <div className="c" style={{ padding:20, textAlign:"center" }}>
                 <div style={{ fontSize:11, color:"#52525b", marginBottom:10 }}>No compounds in this cycle yet</div>
-                <button onClick={() => setAddOpen(true)} style={{ fontSize:10, color:T, background:"transparent", border:"1px solid rgba(45,212,191,0.2)", padding:"6px 14px", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>+ Add Compound</button>
+                <button onClick={() => setAddCompoundOpen(true)} style={{ fontSize:10, color:T, background:"transparent", border:"1px solid rgba(45,212,191,0.2)", padding:"6px 14px", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>+ Add Compound</button>
               </div>
             ) : active.map(c => {
               const dosed = todayDoses[c.id];
               return (
                 <div key={c.id} className="c" style={{ padding:"14px 18px", display:"flex", alignItems:"center", gap:14 }}>
-                  <button onClick={() => setDetailId(c.id)} style={{ flex:1, background:"transparent", border:"none", cursor:"pointer", textAlign:"left", fontFamily:"'JetBrains Mono',monospace", display:"flex", alignItems:"center", gap:12 }}>
+                  <div style={{ flex:1, display:"flex", alignItems:"center", gap:12 }}>
                     <div style={{ width:6, height:6, borderRadius:"50%", background:dosed?T:"#27272a" }}/>
                     <div>
                       <div style={{ fontSize:14, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{c.name}</div>
                       <div style={{ fontSize:10, color:"#3f3f46", marginTop:3 }}>{c.dose} {c.unit} · {c.freq}</div>
                     </div>
-                  </button>
+                  </div>
                   <button className="ql" onClick={() => { if (!dosed) setTodayDoses(p => ({ ...p, [c.id]: c.dose })); }}>
                     {dosed ? "✓ Logged" : "Log"}
                   </button>
@@ -530,55 +407,12 @@ function FlourishApp() {
               );
             })}
           </div>
-
-          {f.data.prs?.length > 0 && (<div style={{ marginBottom:28 }}><SL>Lift PRs</SL><div className="c" style={{ padding:16 }}>
-            {f.data.prs.slice(0, 4).map(pr => (
-              <div key={pr.exercise} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid #141416" }}>
-                <span style={{ fontSize:12, color:"#71717a" }}>{pr.exercise}</span>
-                <span style={{ fontSize:14, fontWeight:700, color:"#fff", fontFamily:"'Inter',sans-serif" }}>{Math.round(pr.estimated_1rm)} lbs</span>
-              </div>
-            ))}
-          </div></div>)}
-
-          <Mod open={addOpen} onClose={() => { setAddOpen(false); setAddSv(""); }} title="Add Compound">
-            <AC value={addSv} onChange={setAddSv} onSelect={async (r) => {
-              try {
-                await f.addCompound({ name:r.name, dose:r.dose, unit:r.unit, frequency:r.freq, category:r.cat, titration:[{ week:1, dose:r.dose }] });
-                setAddOpen(false); setAddSv("");
-              } catch (err) { alert(err.message); }
-            }} />
-            <p style={{ fontSize:11, color:"#27272a", textAlign:"center" }}>Search and tap to add</p>
-          </Mod>
-
-          <Mod open={chatOpen} onClose={() => setChatOpen(false)} title="Ask Flourish" fullHeight>
-            <ChatView messages={chat.messages} sending={chat.sending} onSend={chat.sendMessage} onNewConversation={chat.newConversation} />
-          </Mod>
-
-          <Mod open={memoryOpen} onClose={() => setMemoryOpen(false)} title="What Flourish Knows">
-            {Object.keys(f.data.memoryByCategory || {}).length === 0 ? (
-              <div style={{ textAlign:"center", padding:30, color:"#3f3f46", fontSize:12 }}>No memories yet. They'll appear as you use the app.</div>
-            ) : (
-              <div>
-                {Object.entries(f.data.memoryByCategory || {}).map(([cat, mems]) => (
-                  <div key={cat} style={{ marginBottom:20 }}>
-                    <div style={{ fontSize:10, color:T, textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:8 }}>{cat.replace("_", " ")}</div>
-                    {mems.map(m => (
-                      <div key={m.id} className="c" style={{ padding:"10px 14px", marginBottom:4, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
-                        <div style={{ flex:1, fontSize:12, color:"#a1a1aa", lineHeight:1.6 }}>{m.content}</div>
-                        <button onClick={() => f.deleteMemory(m.id)} style={{ background:"transparent", border:"none", color:"#3f3f46", cursor:"pointer", fontSize:14, flexShrink:0 }}>×</button>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-          </Mod>
         </div>)}
 
         {tab === "log" && <LogView active={active} onSave={async (data) => { await f.saveLog(data); setTab("home"); }} />}
-        {tab === "train" && <TrainView training={training} prs={f.data.prs || []} onSave={f.saveTraining} />}
-        {tab === "stack" && <StackView compounds={compounds} onAdd={f.addCompound} onUpdate={f.updateCompound} onDelete={f.deleteCompound} />}
-        {tab === "history" && <HistoryView logs={logs} compounds={compounds} onDelete={f.deleteLog} />}
+        {tab === "labs" && <LabsView panels={f.data.panels || []} onRefresh={f.refresh} />}
+        {tab === "symptoms" && <SymptomsView />}
+        {tab === "stack" && <StackView compounds={compounds} onAdd={() => setAddCompoundOpen(true)} onUpdate={f.updateCompound} onDelete={f.deleteCompound} />}
       </div>
 
       <nav style={{ position:"fixed", bottom:0, left:0, right:0, background:"rgba(0,0,0,0.94)", backdropFilter:"blur(16px)", borderTop:"1px solid #1e1e22", zIndex:50 }}>
@@ -591,6 +425,65 @@ function FlourishApp() {
           ))}
         </div>
       </nav>
+
+      <Mod open={addCompoundOpen} onClose={() => setAddCompoundOpen(false)} title="Add Compound">
+        <AddCompoundView onAdded={() => { setAddCompoundOpen(false); f.refresh(); }} onClose={() => setAddCompoundOpen(false)} />
+      </Mod>
+
+      <Mod open={chatOpen} onClose={() => setChatOpen(false)} title="Ask Flourish" fullHeight>
+        <ChatView messages={chat.messages} sending={chat.sending} onSend={chat.sendMessage} />
+      </Mod>
+
+      <Mod open={whatChangedOpen} onClose={() => setWhatChangedOpen(false)} title="What Changed" fullHeight>
+        <div style={{ padding:20 }}>
+          <WhatChangedView since="lastBloodwork" />
+        </div>
+      </Mod>
+
+      <Mod open={timelineOpen} onClose={() => setTimelineOpen(false)} title="Timeline" fullHeight>
+        <div style={{ padding:20 }}>
+          <TimelineView
+            panels={f.data.panels || []}
+            compounds={f.data.compounds || []}
+            logs={f.data.logs || []}
+            training={f.data.training || []}
+            symptoms={f.data.symptoms || []}
+            cycles={f.data.cycles || []}
+          />
+        </div>
+      </Mod>
+
+      <Mod open={memoryOpen} onClose={() => setMemoryOpen(false)} title="What Flourish Knows">
+        {Object.keys(f.data.memoryByCategory || {}).length === 0 ? (
+          <div style={{ textAlign:"center", padding:30, color:"#3f3f46", fontSize:12 }}>No memories yet. They'll appear as you use the app.</div>
+        ) : (
+          <div>
+            {Object.entries(f.data.memoryByCategory || {}).map(([cat, mems]) => (
+              <div key={cat} style={{ marginBottom:20 }}>
+                <div style={{ fontSize:10, color:T, textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:8 }}>{cat.replace("_", " ")}</div>
+                {mems.map(m => (
+                  <div key={m.id} className="c" style={{ padding:"10px 14px", marginBottom:4, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+                    <div style={{ flex:1, fontSize:12, color:"#a1a1aa", lineHeight:1.6 }}>{m.content}</div>
+                    <button onClick={() => f.deleteMemory(m.id)} style={{ background:"transparent", border:"none", color:"#3f3f46", cursor:"pointer", fontSize:14, flexShrink:0 }}>×</button>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </Mod>
+
+      <Mod open={trainOpen} onClose={() => setTrainOpen(false)} title="Log Training" fullHeight>
+        <div style={{ padding:20 }}>
+          <TrainView training={training} prs={f.data.prs || []} onSave={async (s) => { await f.saveTraining(s); setTrainOpen(false); }} />
+        </div>
+      </Mod>
+
+      <Mod open={historyOpen} onClose={() => setHistoryOpen(false)} title="History" fullHeight>
+        <div style={{ padding:20 }}>
+          <HistoryView logs={logs} compounds={compounds} onDelete={f.deleteLog} />
+        </div>
+      </Mod>
 
       {menuOpen && (
         <div style={{ position:"fixed", inset:0, zIndex:200, background:"#000", display:"flex", flexDirection:"column" }}>
@@ -605,9 +498,19 @@ function FlourishApp() {
               <div style={{ fontSize:11, color:"#3f3f46", marginTop:3, textTransform:"capitalize" }}>{f.data.profile?.experience} · {f.data.profile?.goals?.slice(0,2).join(", ")}</div>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
-              <button onClick={() => { setMemoryOpen(true); setMenuOpen(false); }} style={{ display:"flex", alignItems:"center", padding:"14px 0", background:"transparent", border:"none", borderBottom:"1px solid #141416", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", color:"#71717a", fontSize:13 }}>What Flourish Knows</button>
-              <button onClick={() => { setChatOpen(true); setMenuOpen(false); }} style={{ display:"flex", alignItems:"center", padding:"14px 0", background:"transparent", border:"none", borderBottom:"1px solid #141416", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", color:"#71717a", fontSize:13 }}>Chat History</button>
-              <div style={{ padding:"14px 0", borderBottom:"1px solid #141416" }}>
+              {[
+                { l: "Timeline", fn: () => { setTimelineOpen(true); setMenuOpen(false); } },
+                { l: "Training Log", fn: () => { setTrainOpen(true); setMenuOpen(false); } },
+                { l: "Log History", fn: () => { setHistoryOpen(true); setMenuOpen(false); } },
+                { l: "What Flourish Knows", fn: () => { setMemoryOpen(true); setMenuOpen(false); } },
+                { l: "Ask Flourish", fn: () => { setChatOpen(true); setMenuOpen(false); } },
+              ].map((item, i) => (
+                <button key={i} onClick={item.fn} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 0", background:"transparent", border:"none", borderBottom:"1px solid #141416", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", color:"#a1a1aa", fontSize:13 }}>
+                  {item.l}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3f3f46" strokeWidth="2"><path d="M9 5l7 7-7 7"/></svg>
+                </button>
+              ))}
+              <div style={{ padding:"16px 0", borderBottom:"1px solid #141416" }}>
                 <UserButton afterSignOutUrl="/" />
               </div>
             </div>
@@ -693,27 +596,21 @@ function TrainView({ training, prs, onSave }) {
     const valid = sets.filter(s => s.reps && s.weight);
     if (!valid.length) return;
     setSaving(true);
-    try {
-      await onSave({ type:"lift", exercise, sets:valid.map(s => ({ reps:Number(s.reps), weight:Number(s.weight) })) });
-      setSets([{ reps:"", weight:"" }]);
-    } catch (err) { alert(err.message); }
-    finally { setSaving(false); }
+    try { await onSave({ type:"lift", exercise, sets:valid.map(s => ({ reps:Number(s.reps), weight:Number(s.weight) })) }); setSets([{ reps:"", weight:"" }]); }
+    catch (err) { alert(err.message); } finally { setSaving(false); }
   };
 
   const saveCardio = async () => {
     if (!duration) return;
     setSaving(true);
-    try {
-      await onSave({ type:"cardio", exercise:cardioEx, duration:Number(duration), distance:Number(distance)||0 });
-      setDuration(""); setDistance("");
-    } catch (err) { alert(err.message); }
-    finally { setSaving(false); }
+    try { await onSave({ type:"cardio", exercise:cardioEx, duration:Number(duration), distance:Number(distance)||0 }); setDuration(""); setDistance(""); }
+    catch (err) { alert(err.message); } finally { setSaving(false); }
   };
 
   return (
     <div>
       <h1 style={{ ...HS, marginBottom:4 }}>Training</h1>
-      <p style={{ fontSize:11, color:"#3f3f46", marginBottom:24 }}>Log lifts and cardio. Track PRs over time.</p>
+      <p style={{ fontSize:11, color:"#3f3f46", marginBottom:24 }}>Log lifts and cardio</p>
       <div style={{ display:"flex", gap:8, marginBottom:24 }}>
         {["lift","cardio"].map(m => (<button key={m} onClick={() => setMode(m)} style={{ flex:1, padding:"10px 0", border:`1px solid ${mode===m?"rgba(45,212,191,0.3)":"#1e1e22"}`, background:mode===m?"rgba(45,212,191,0.04)":"transparent", color:mode===m?T:"#52525b", fontSize:11, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", textTransform:"capitalize" }}>{m==="lift"?"Barbell Lifts":"Cardio"}</button>))}
       </div>
@@ -748,41 +645,16 @@ function TrainView({ training, prs, onSave }) {
           </div>
         ))}
       </div></div>)}
-      {training.length > 0 && (<div style={{ marginTop:28 }}><SL right={`${training.length} total`}>Recent</SL>
-        {training.slice(0, 8).map(t => (
-          <div key={t.id} className="c" style={{ padding:"12px 16px", marginBottom:6 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <div><span style={{ fontSize:12, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{t.exercise}</span><span style={{ fontSize:10, color:"#3f3f46", marginLeft:8 }}>{fmtDate(t.date)}</span></div>
-              <span style={{ fontSize:9, padding:"2px 8px", background:"rgba(45,212,191,0.06)", color:T, border:"1px solid rgba(45,212,191,0.1)", textTransform:"uppercase" }}>{t.type}</span>
-            </div>
-            {t.type === "lift" && t.sets && (<div style={{ fontSize:10, color:"#52525b", marginTop:6 }}>{t.sets.map(s => `${s.reps}×${s.weight}lbs`).join("  ·  ")}</div>)}
-            {t.type === "cardio" && (<div style={{ fontSize:10, color:"#52525b", marginTop:6 }}>{t.duration}min{t.distance ? ` · ${t.distance}mi` : ""}</div>)}
-          </div>
-        ))}
-      </div>)}
     </div>
   );
 }
 
 function StackView({ compounds, onAdd, onUpdate, onDelete }) {
-  const [modal, setModal] = useState(null);
-  const [sv, setSv] = useState("");
-  const [f, setF] = useState({ name:"", dose:"", unit:"mg", frequency:"daily", category:"growth" });
-
-  const openAdd = () => { setF({ name:"",dose:"",unit:"mg",frequency:"daily",category:"growth" }); setSv(""); setModal("add"); };
-  const save = async () => {
-    try {
-      if (modal === "add") await onAdd(f);
-      else await onUpdate(f.id, f);
-      setModal(null);
-    } catch (err) { alert(err.message); }
-  };
-
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
         <div><h1 style={HS}>Stack</h1><p style={{ fontSize:11, color:"#3f3f46", marginTop:4 }}>{compounds.length} compounds</p></div>
-        <button onClick={openAdd} style={{ height:36, padding:"0 16px", background:"transparent", border:"1px solid #1e1e22", color:"#52525b", fontSize:11, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>+ Add</button>
+        <button onClick={onAdd} style={{ height:36, padding:"0 16px", background:T, color:"#000", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", letterSpacing:"0.05em", textTransform:"uppercase" }}>+ Add</button>
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
         {compounds.map(c => (
@@ -796,25 +668,12 @@ function StackView({ compounds, onAdd, onUpdate, onDelete }) {
               {[{l:"Dose",v:`${c.dose} ${c.unit}`},{l:"Freq",v:c.freq},{l:"Category",v:c.category}].map((d,i)=>(<div key={i}><div style={{ fontSize:9, color:"#27272a", textTransform:"uppercase", letterSpacing:"0.1em" }}>{d.l}</div><div style={{ fontSize:13, fontWeight:600, color:"#52525b", marginTop:3 }}>{d.v}</div></div>))}
             </div>
             <div style={{ display:"flex", gap:6, marginTop:14, paddingTop:12, borderTop:"1px solid #141416" }}>
-              <button onClick={()=>{setF({...c,id:c.id});setSv(c.name);setModal("edit")}} style={{ flex:1, height:36, background:"transparent", border:"1px solid #1e1e22", color:"#3f3f46", fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>Edit</button>
               <button onClick={()=>onUpdate(c.id,{status:c.status==="active"?"off":"active"})} style={{ flex:1, height:36, background:"transparent", border:"1px solid #1e1e22", color:"#3f3f46", fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>{c.status==="active"?"Pause":"Activate"}</button>
               <button onClick={()=>onDelete(c.id)} style={{ flex:1, height:36, background:"transparent", border:"1px solid #7f1d1d", color:"#ef4444", fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>Remove</button>
             </div>
           </div>
         ))}
       </div>
-      <Mod open={!!modal} onClose={()=>setModal(null)} title={modal==="add"?"Add Compound":"Edit Compound"}>
-        <AC value={sv} onChange={v=>{setSv(v);setF(p=>({...p,name:v}))}} onSelect={r=>{setSv(r.name);setF(p=>({...p,name:r.name,dose:r.dose,unit:r.unit,frequency:r.freq,category:r.cat}))}}/>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
-          <div style={{marginBottom:14}}><label style={LS}>Dose</label><input type="number" value={f.dose} onChange={e=>setF(p=>({...p,dose:e.target.value}))} style={IS}/></div>
-          <div style={{marginBottom:14}}><label style={LS}>Unit</label><input value={f.unit} onChange={e=>setF(p=>({...p,unit:e.target.value}))} style={IS}/></div>
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
-          <div style={{marginBottom:14}}><label style={LS}>Frequency</label><select value={f.frequency} onChange={e=>setF(p=>({...p,frequency:e.target.value}))} style={{...IS,background:"#0a0a0c",appearance:"none"}}>{FREQS.map(o=><option key={o}>{o}</option>)}</select></div>
-          <div style={{marginBottom:14}}><label style={LS}>Category</label><select value={f.category} onChange={e=>setF(p=>({...p,category:e.target.value}))} style={{...IS,background:"#0a0a0c",appearance:"none"}}>{CATS.map(o=><option key={o}>{o}</option>)}</select></div>
-        </div>
-        <button onClick={save} disabled={!f.name||!f.dose} style={{ width:"100%", height:44, background:(!f.name||!f.dose)?"#111114":T, color:(!f.name||!f.dose)?"#27272a":"#000", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:(!f.name||!f.dose)?"default":"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>{modal==="add"?"Add to Stack":"Save Changes"}</button>
-      </Mod>
     </div>
   );
 }
@@ -846,10 +705,6 @@ function HistoryView({ logs, compounds, onDelete }) {
   );
 }
 
-// ══════════════════════════════════════
-// AUTH WRAPPER
-// ══════════════════════════════════════
-
 export default function Page() {
   return (
     <>
@@ -861,7 +716,7 @@ export default function Page() {
           <svg width="32" height="46" viewBox="0 0 24 34" fill="none"><rect x="6" y="1" width="12" height="5" rx="1" fill={T}/><path d="M7 6V9H17V6" stroke={T} strokeWidth="1.5" fill="none"/><path d="M7 9V28C7 30.76 9.24 33 12 33C14.76 33 17 30.76 17 28V9" stroke={T} strokeWidth="1.5" fill="none"/><path d="M8.5 18V28C8.5 29.93 10.07 31.5 12 31.5C13.93 31.5 15.5 29.93 15.5 28V18H8.5Z" fill={T}/></svg>
           <div style={{ textAlign:"center" }}>
             <div style={{ fontSize:24, fontWeight:700, color:"#fff", fontFamily:"'Inter',sans-serif", marginBottom:4 }}><b>flour</b><span style={{ fontWeight:300 }}>ish</span></div>
-            <div style={{ fontSize:12, color:"#52525b" }}>Compound stack tracker</div>
+            <div style={{ fontSize:12, color:"#52525b" }}>Performance OS</div>
           </div>
           <SignInButton mode="modal">
             <button style={{ height:44, padding:"0 32px", background:T, color:"#000", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>Sign In</button>
