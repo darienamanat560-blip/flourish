@@ -111,30 +111,51 @@ export async function POST(request) {
         fasting: body.fasting !== undefined ? body.fasting : true,
         raw_data: body.rawData || {},
         notes: body.notes || null,
-        active_compounds_snapshot: activeCompoundsSnapshot,
+        active_compounds_snapshot: body.activeCompounds || activeCompoundsSnapshot,
       })
       .select()
       .single();
 
     if (panelError) throw panelError;
 
-    // Normalize and insert markers
+    // Normalize and insert markers.
+    // Deduplication: if two markers share the same canonical name (e.g. both map
+    // to "alt"), only keep the first — later duplicates are likely misidentified.
+    // Suspicious: skip markers with values >50x their known refHigh (almost always
+    // a different test that got misidentified by the PDF parser or canonicalizer).
+    const seenCanonicals = new Set();
     const markerRows = body.markers
       .filter(m => m.name && m.value !== null && m.value !== undefined && !isNaN(parseFloat(m.value)))
       .map(m => {
         const normalized = normalizeMarker(m.name, m.value, m.unit, m.refLow, m.refHigh);
-        return {
-          blood_panel_id: panel.id,
-          user_id: userId,
-          marker_name: normalized.canonical,
-          display_name: normalized.displayName,
-          value: normalized.value,
-          unit: normalized.unit,
-          reference_low: normalized.refLow,
-          reference_high: normalized.refHigh,
-          // flagged_low/flagged_high are auto-set by trigger
-        };
-      });
+        return { ...normalized, blood_panel_id: panel.id, user_id: userId };
+      })
+      .filter(m => {
+        // Skip suspicious values (misidentified markers)
+        if (m.suspicious) {
+          console.warn(`Skipping suspicious marker: ${m.rawName} = ${m.value} (refHigh: ${m.refHigh})`);
+          return false;
+        }
+        // Deduplicate by canonical name — keep first occurrence only
+        if (seenCanonicals.has(m.canonical)) {
+          console.warn(`Skipping duplicate canonical: ${m.canonical} (rawName: ${m.rawName})`);
+          return false;
+        }
+        seenCanonicals.add(m.canonical);
+        return true;
+      })
+      .map(m => ({
+          blood_panel_id: m.blood_panel_id,
+          user_id: m.user_id,
+          marker_name: m.canonical,
+          display_name: m.displayName,
+          value: m.value,
+          unit: m.unit,
+          reference_low: m.refLow,
+          reference_high: m.refHigh,
+          flagged_low: m.refLow !== null && m.value < m.refLow,
+          flagged_high: m.refHigh !== null && m.value > m.refHigh,
+      }));
 
     if (markerRows.length > 0) {
       const { error: markerError } = await db

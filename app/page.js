@@ -549,7 +549,7 @@ function FlourishApp() {
         </div>)}
 
         {tab === "log" && <LogView active={active} onSave={async (data) => { await f.saveLog(data); setTab("home"); }} />}
-        {tab === "labs" && <LabsView panels={f.data.panels || []} onRefresh={f.refresh} />}
+        {tab === "labs" && <LabsView panels={f.data.panels || []} compounds={f.data.compounds || []} onRefresh={f.refresh} />}
         {tab === "symptoms" && <SymptomsView />}
         {tab === "stack" && <StackView compounds={compounds} onAdd={() => setAddCompoundOpen(true)} onUpdate={f.updateCompound} onDelete={f.deleteCompound} />}
       </div>
