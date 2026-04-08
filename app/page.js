@@ -113,12 +113,12 @@ function HealthHistoryField({ value, onChange }) {
       )}
 
       <textarea
-        placeholder={"Be specific — the AI uses this to avoid conflicts and tailor doses.
+        placeholder={`Be specific — the AI uses this to avoid conflicts and tailor doses.
 
 Examples:
 • "First cycle, no prior PEDs, no health issues"
 • "2x Test-E cycles, acne sensitive, high hematocrit"
-• "On TRT 150mg/wk, adding peptides, family hx high cholesterol""}
+• "On TRT 150mg/wk, adding peptides, family hx high cholesterol"`}
         value={value}
         onChange={e => onChange(e.target.value)}
         style={{...IS, height:"auto", minHeight:120, padding:"10px 14px", resize:"vertical", lineHeight:1.6}}
