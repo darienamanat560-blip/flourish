@@ -143,19 +143,16 @@ export async function POST(request) {
       if (markerError) throw markerError;
     }
 
-    // Trigger insights generation in the background (rules engine will check the new markers)
-    fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL || ""}/api/insights`,
-      {
+    // Fire-and-forget insights trigger. Requires NEXT_PUBLIC_APP_URL in Vercel env vars.
+    // Silently skips if not set — insights still available via manual trigger.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (appUrl) {
+      fetch(`${appUrl}/api/insights`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // We can't easily forward Clerk auth here in a fire-and-forget way
-          // so this is best-effort. Production should use a proper job queue.
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ trigger: "bloodwork" }),
-      }
-    ).catch(() => {});
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       panel: { ...panel, markers: markerRows },

@@ -3,6 +3,15 @@
   "functions": {
     "app/api/**": {
       "maxDuration": 30
+    },
+    "app/api/bloodwork/parse/route.js": {
+      "maxDuration": 60
+    },
+    "app/api/ai/route.js": {
+      "maxDuration": 60
+    },
+    "app/api/onboarding/generate/route.js": {
+      "maxDuration": 60
     }
   }
 }

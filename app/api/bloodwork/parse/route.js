@@ -3,6 +3,10 @@ import { getUserId } from "@/lib/auth";
 import { parseBloodworkPDF, parseBloodworkText } from "@/lib/parser";
 import { normalizeMarker } from "@/lib/markers";
 
+// Claude vision on a multi-page PDF can take 20-40s — needs a longer timeout.
+// Vercel Hobby supports up to 60s, Pro up to 300s.
+export const maxDuration = 60;
+
 // ══════════════════════════════════════════════════════════════
 // POST /api/bloodwork/parse
 //

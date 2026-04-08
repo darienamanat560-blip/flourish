@@ -82,12 +82,64 @@ function Loading() {
 // ONBOARDING (with live AI generation)
 // ══════════════════════════════════════
 
+// ── Health & History field with examples ──────────────────────
+function HealthHistoryField({ value, onChange }) {
+  const [showExamples, setShowExamples] = useState(false);
+  const EXAMPLES = [
+    "First cycle. No prior PEDs. No known health issues.",
+    "2 prior Test-E cycles (500mg/wk, 12wk). Mild acne on last cycle. Bloodwork showed elevated hematocrit — donating blood quarterly.",
+    "On TRT (150mg/wk Test-C). Adding peptides for first time. Family history of high cholesterol. On Finasteride 1mg/day.",
+    "Intermediate. 3 cycles. Sensitive to high estrogen — gyno flare at 600mg. Use Aromasin as AI. Good bloodwork history.",
+  ];
+
+  return (
+    <div style={{ marginBottom:16 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+        <label style={LS}>Prior Cycles & Health</label>
+        <button onClick={()=>setShowExamples(v=>!v)} style={{ fontSize:10, color:T, background:"transparent", border:"none", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", padding:0 }}>
+          {showExamples ? "hide examples ↑" : "see examples ↓"}
+        </button>
+      </div>
+
+      {showExamples && (
+        <div style={{ marginBottom:10, display:"flex", flexDirection:"column", gap:6 }}>
+          {EXAMPLES.map((ex, i) => (
+            <button key={i} onClick={() => onChange(ex)} style={{ padding:"10px 12px", background:"rgba(45,212,191,0.02)", border:"1px solid rgba(45,212,191,0.08)", color:"#52525b", fontSize:11, fontFamily:"'Inter',sans-serif", cursor:"pointer", textAlign:"left", lineHeight:1.5 }}>
+              <span style={{ color:"#27272a", fontSize:9, fontFamily:"'JetBrains Mono',monospace", display:"block", marginBottom:3, textTransform:"uppercase", letterSpacing:"0.08em" }}>Example {i+1} — tap to use</span>
+              {ex}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <textarea
+        placeholder={"Be specific — the AI uses this to avoid conflicts and tailor doses.
+
+Examples:
+• "First cycle, no prior PEDs, no health issues"
+• "2x Test-E cycles, acne sensitive, high hematocrit"
+• "On TRT 150mg/wk, adding peptides, family hx high cholesterol""}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        style={{...IS, height:"auto", minHeight:120, padding:"10px 14px", resize:"vertical", lineHeight:1.6}}
+      />
+      <p style={{ fontSize:10, color:"#3f3f46", marginTop:5, lineHeight:1.5 }}>
+        Mention: previous cycles & compounds used · health conditions · known sensitivities · medications · bloodwork flags
+      </p>
+    </div>
+  );
+}
+
 function Onboarding({ onComplete }) {
   const [step, setStep] = useState(0);
   const [p, setP] = useState({ name:"", experience:"", age:"", weight:"", goals:[], health:"" });
   const [loading, setLoading] = useState(false);
   const [rec, setRec] = useState(null);
   const [error, setError] = useState(null);
+  const [bwParsed, setBwParsed] = useState(null);
+  const [bwUploading, setBwUploading] = useState(false);
+  const [bwError, setBwError] = useState(null);
+  const bwFileRef = useRef(null);
 
   const generate = async () => {
     setLoading(true);
@@ -108,10 +160,12 @@ function Onboarding({ onComplete }) {
     }
   };
 
-  const finish = async () => { await onComplete({ profile: p, cycle: rec }); };
+  const finish = async () => {
+    await onComplete({ profile: p, cycle: rec, bloodwork: bwParsed });
+  };
 
-  const titles = ["Welcome to Flourish.", "About You", "Your Goals", "Health & History", "Your Protocol"];
-  const subs = ["Let's personalize your experience.", "Stats for tailored recommendations.", "What are you optimizing for?", "For safe recommendations.", "Built for you."];
+  const titles = ["Welcome to Flourish.", "About You", "Your Goals", "Health & History", "Baseline Bloodwork", "Your Protocol"];
+  const subs = ["Let's personalize your experience.", "Stats for tailored recommendations.", "What are you optimizing for?", "For safe recommendations.", "Upload a recent panel for smarter recommendations. Optional.", "Built for you."];
 
   return (
     <div style={{ minHeight:"100vh", background:"#000", color:"#e4e4e7", fontFamily:"'JetBrains Mono',monospace", display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -162,14 +216,81 @@ function Onboarding({ onComplete }) {
         </div>)}
 
         {step === 3 && (<div>
-          <div style={{ marginBottom:14 }}><label style={LS}>Prior Cycles & Health</label><textarea placeholder="Past cycles, health conditions, sensitivities..." value={p.health} onChange={e=>setP(x=>({...x,health:e.target.value}))} style={{...IS,height:"auto",minHeight:80,padding:"10px 14px",resize:"vertical"}}/></div>
+          <HealthHistoryField value={p.health} onChange={v=>setP(x=>({...x,health:v}))} />
           <div style={{ display:"flex", gap:8 }}>
             <button onClick={()=>setStep(2)} style={{ flex:1, height:44, background:"transparent", border:"1px solid #1e1e22", color:"#52525b", fontSize:11, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>Back</button>
-            <button onClick={()=>{setStep(4);generate()}} style={{ flex:2, height:44, background:T, color:"#000", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", textTransform:"uppercase", letterSpacing:"0.08em" }}>Generate Protocol</button>
+            <button onClick={()=>setStep(4)} style={{ flex:2, height:44, background:T, color:"#000", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", textTransform:"uppercase", letterSpacing:"0.08em" }}>Continue</button>
           </div>
         </div>)}
 
         {step === 4 && (<div>
+          {/* Bloodwork upload — optional */}
+          <input ref={bwFileRef} type="file" accept="application/pdf" style={{ display:"none" }} onChange={async e => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            setBwUploading(true);
+            setBwError(null);
+            try {
+              const base64 = await new Promise((res, rej) => {
+                const r = new FileReader();
+                r.onload = () => res(r.result.split(",")[1]);
+                r.onerror = rej;
+                r.readAsDataURL(f);
+              });
+              const resp = await fetch("/api/bloodwork/parse", {
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body: JSON.stringify({ type:"pdf", data:base64 }),
+              });
+              if (!resp.ok) {
+                const err = await resp.json().catch(()=>({}));
+                throw new Error(err.detail || err.error || "Parse failed");
+              }
+              const data = await resp.json();
+              if (!data.markers?.length) throw new Error("No markers found in PDF");
+              setBwParsed({ ...data, fileName: f.name });
+            } catch(err) {
+              setBwError(err.message);
+            } finally {
+              setBwUploading(false);
+              if (bwFileRef.current) bwFileRef.current.value = "";
+            }
+          }} />
+
+          {bwUploading ? (
+            <div style={{ textAlign:"center", padding:40 }}>
+              <div style={{ width:24, height:24, border:"2px solid #1e1e22", borderTopColor:T, borderRadius:"50%", margin:"0 auto 12px", animation:"spin .7s linear infinite" }}/>
+              <p style={{ fontSize:12, color:"#a1a1aa" }}>Parsing bloodwork… 15-40s</p>
+            </div>
+          ) : bwParsed ? (
+            <div>
+              <div className="c" style={{ padding:14, marginBottom:14, borderColor:"rgba(45,212,191,0.15)" }}>
+                <div style={{ fontSize:9, color:T, textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:4 }}>Panel Parsed</div>
+                <div style={{ fontSize:13, fontWeight:600, color:"#fff", fontFamily:"'Inter',sans-serif" }}>{bwParsed.fileName}</div>
+                <div style={{ fontSize:10, color:"#3f3f46", marginTop:4 }}>{bwParsed.markerCount} markers · {bwParsed.labName || "Unknown lab"}{bwParsed.collectionDate ? ` · ${bwParsed.collectionDate}` : ""}</div>
+              </div>
+              <button onClick={()=>setBwParsed(null)} style={{ width:"100%", height:36, background:"transparent", border:"1px solid #1e1e22", color:"#52525b", fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", marginBottom:12 }}>Upload Different File</button>
+            </div>
+          ) : (
+            <div>
+              <button onClick={()=>bwFileRef.current?.click()} className="c" style={{ width:"100%", padding:32, textAlign:"center", cursor:"pointer", borderStyle:"dashed", marginBottom:12 }}>
+                <svg width="28" height="28" fill="none" stroke={T} strokeWidth="1.2" viewBox="0 0 24 24" style={{ margin:"0 auto 10px", opacity:.6 }}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                <div style={{ fontSize:12, color:"#71717a", fontFamily:"'Inter',sans-serif" }}>Upload baseline bloodwork PDF</div>
+                <div style={{ fontSize:10, color:"#3f3f46", marginTop:4 }}>Quest, LabCorp, any standard lab panel</div>
+              </button>
+              {bwError && <p style={{ fontSize:11, color:"#f87171", marginBottom:10, padding:"8px 12px", background:"rgba(239,68,68,0.04)", border:"1px solid rgba(239,68,68,0.1)" }}>{bwError}</p>}
+            </div>
+          )}
+
+          <div style={{ display:"flex", gap:8, marginTop:4 }}>
+            <button onClick={()=>setStep(3)} style={{ flex:1, height:44, background:"transparent", border:"1px solid #1e1e22", color:"#52525b", fontSize:11, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>Back</button>
+            <button onClick={()=>{setStep(5);generate();}} style={{ flex:2, height:44, background:T, color:"#000", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", textTransform:"uppercase", letterSpacing:"0.08em" }}>
+              {bwParsed ? "Generate Protocol" : "Skip & Generate"}
+            </button>
+          </div>
+        </div>)}
+
+        {step === 5 && (<div>
           {loading ? (<div style={{ textAlign:"center", padding:40 }}>
             <div style={{ width:28, height:28, border:"2px solid #1e1e22", borderTopColor:T, borderRadius:"50%", margin:"0 auto 16px", animation:"spin .7s linear infinite" }}/>
             <p style={{ fontSize:12, color:"#a1a1aa", marginBottom:6, fontFamily:"'Inter',sans-serif", fontWeight:600 }}>Building your protocol...</p>
@@ -306,7 +427,7 @@ function FlourishApp() {
   if (f.loading) return <Loading />;
 
   if (!f.data.profile?.onboarded) {
-    return <Onboarding onComplete={async ({ profile, cycle }) => {
+    return <Onboarding onComplete={async ({ profile, cycle, bloodwork }) => {
       await f.saveProfile({ ...profile, onboarded: true });
       if (cycle) {
         await f.createCycle({
@@ -316,6 +437,24 @@ function FlourishApp() {
           compounds: cycle.compounds,
           aiGenerated: true,
         });
+      }
+      // Save baseline bloodwork if user uploaded one during onboarding
+      if (bloodwork?.markers?.length) {
+        try {
+          await fetch("/api/bloodwork", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              date: bloodwork.collectionDate || new Date().toISOString().slice(0, 10),
+              labName: bloodwork.labName,
+              fasting: bloodwork.fasting ?? true,
+              markers: bloodwork.markers,
+              rawData: bloodwork,
+            }),
+          });
+        } catch {
+          // Non-fatal — user can re-upload in Labs tab
+        }
       }
       await f.refresh();
     }} />;
@@ -649,6 +788,104 @@ function TrainView({ training, prs, onSave }) {
   );
 }
 
+function StackCompoundCard({ c, onUpdate, onDelete }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+  const [form, setForm] = useState({ dose: c.dose, unit: c.unit || "", freq: c.freq || "" });
+
+  const FREQ_OPTIONS = ["daily", "EOD", "E3D", "twice weekly", "weekly", "twice daily", "as needed"];
+
+  const openEdit = () => {
+    setForm({ dose: c.dose, unit: c.unit || "", freq: c.freq || "" });
+    setErr(null);
+    setEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!form.dose || !form.unit || !form.freq) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      await onUpdate(c.id, { dose: parseFloat(form.dose), unit: form.unit, frequency: form.freq });
+      setEditing(false);
+    } catch {
+      setErr("Save failed — try again");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancelEdit = () => { setEditing(false); setErr(null); };
+
+  return (
+    <div className="c" style={{ padding:"16px 18px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom: editing ? 16 : 14 }}>
+        <div style={{ width:6, height:6, borderRadius:"50%", background:c.status==="active"?T:"#27272a" }}/>
+        <span style={{ flex:1, fontSize:14, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{c.name}</span>
+        <span style={{ fontSize:9, padding:"2px 8px", background:c.status==="active"?"rgba(45,212,191,0.06)":"#111114", color:c.status==="active"?T:"#3f3f46", border:`1px solid ${c.status==="active"?"rgba(45,212,191,0.1)":"#1e1e22"}`, textTransform:"uppercase", fontWeight:600 }}>{c.status}</span>
+      </div>
+
+      {editing ? (
+        <div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 10px", marginBottom:10 }}>
+            <div>
+              <div style={{ fontSize:9, color:"#52525b", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:5 }}>Dose</div>
+              <input
+                type="number"
+                value={form.dose}
+                onChange={e => setForm(p => ({ ...p, dose: e.target.value }))}
+                style={{ width:"100%", height:36, background:"rgba(255,255,255,0.02)", border:"1px solid rgba(45,212,191,0.2)", padding:"0 10px", color:"#e4e4e7", fontSize:13, fontFamily:"'JetBrains Mono',monospace" }}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize:9, color:"#52525b", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:5 }}>Unit</div>
+              <input
+                type="text"
+                value={form.unit}
+                onChange={e => setForm(p => ({ ...p, unit: e.target.value }))}
+                placeholder="mg, mcg, IU…"
+                style={{ width:"100%", height:36, background:"rgba(255,255,255,0.02)", border:"1px solid rgba(45,212,191,0.2)", padding:"0 10px", color:"#e4e4e7", fontSize:13, fontFamily:"'JetBrains Mono',monospace" }}
+              />
+            </div>
+          </div>
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontSize:9, color:"#52525b", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:5 }}>Frequency</div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:6 }}>
+              {FREQ_OPTIONS.map(fo => (
+                <button key={fo} onClick={() => setForm(p => ({ ...p, freq: fo }))} style={{ padding:"5px 9px", fontSize:10, border:`1px solid ${form.freq===fo?"rgba(45,212,191,0.3)":"#1e1e22"}`, background:form.freq===fo?"rgba(45,212,191,0.06)":"transparent", color:form.freq===fo?T:"#52525b", fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>{fo}</button>
+              ))}
+            </div>
+            <input
+              type="text"
+              value={form.freq}
+              onChange={e => setForm(p => ({ ...p, freq: e.target.value }))}
+              placeholder="or type custom…"
+              style={{ width:"100%", height:34, background:"rgba(255,255,255,0.02)", border:"1px solid #1e1e22", padding:"0 10px", color:"#e4e4e7", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}
+            />
+          </div>
+          {err && <p style={{ fontSize:10, color:"#f87171", margin:"0 0 8px" }}>{err}</p>}
+          <div style={{ display:"flex", gap:6 }}>
+            <button onClick={cancelEdit} style={{ flex:1, height:34, background:"transparent", border:"1px solid #1e1e22", color:"#52525b", fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>Cancel</button>
+            <button onClick={saveEdit} disabled={saving || !form.dose || !form.unit || !form.freq} style={{ flex:2, height:34, background:saving?"#111114":T, color:saving?"#3f3f46":"#000", border:"none", fontSize:10, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:saving?"default":"pointer", letterSpacing:"0.05em", textTransform:"uppercase" }}>{saving ? "Saving…" : "Save Changes"}</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:14 }}>
+            {[{l:"Dose",v:`${c.dose} ${c.unit}`},{l:"Freq",v:c.freq},{l:"Category",v:c.category}].map((d,i)=>(<div key={i}><div style={{ fontSize:9, color:"#27272a", textTransform:"uppercase", letterSpacing:"0.1em" }}>{d.l}</div><div style={{ fontSize:13, fontWeight:600, color:"#52525b", marginTop:3 }}>{d.v}</div></div>))}
+          </div>
+          <div style={{ display:"flex", gap:6, paddingTop:12, borderTop:"1px solid #141416" }}>
+            <button onClick={openEdit} style={{ flex:2, height:34, background:"transparent", border:"1px solid rgba(45,212,191,0.15)", color:T, fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>Edit</button>
+            <button onClick={()=>onUpdate(c.id,{status:c.status==="active"?"off":"active"})} style={{ flex:2, height:34, background:"transparent", border:"1px solid #1e1e22", color:"#3f3f46", fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>{c.status==="active"?"Pause":"Activate"}</button>
+            <button onClick={()=>onDelete(c.id)} style={{ flex:1, height:34, background:"transparent", border:"1px solid #7f1d1d", color:"#ef4444", fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>✕</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function StackView({ compounds, onAdd, onUpdate, onDelete }) {
   return (
     <div>
@@ -656,24 +893,13 @@ function StackView({ compounds, onAdd, onUpdate, onDelete }) {
         <div><h1 style={HS}>Stack</h1><p style={{ fontSize:11, color:"#3f3f46", marginTop:4 }}>{compounds.length} compounds</p></div>
         <button onClick={onAdd} style={{ height:36, padding:"0 16px", background:T, color:"#000", border:"none", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer", letterSpacing:"0.05em", textTransform:"uppercase" }}>+ Add</button>
       </div>
-      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-        {compounds.map(c => (
-          <div key={c.id} className="c" style={{ padding:"16px 18px" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
-              <div style={{ width:6, height:6, borderRadius:"50%", background:c.status==="active"?T:"#27272a" }}/>
-              <span style={{ flex:1, fontSize:14, fontWeight:600, color:"#e4e4e7", fontFamily:"'Inter',sans-serif" }}>{c.name}</span>
-              <span style={{ fontSize:9, padding:"2px 8px", background:c.status==="active"?"rgba(45,212,191,0.06)":"#111114", color:c.status==="active"?T:"#3f3f46", border:`1px solid ${c.status==="active"?"rgba(45,212,191,0.1)":"#1e1e22"}`, textTransform:"uppercase", fontWeight:600 }}>{c.status}</span>
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
-              {[{l:"Dose",v:`${c.dose} ${c.unit}`},{l:"Freq",v:c.freq},{l:"Category",v:c.category}].map((d,i)=>(<div key={i}><div style={{ fontSize:9, color:"#27272a", textTransform:"uppercase", letterSpacing:"0.1em" }}>{d.l}</div><div style={{ fontSize:13, fontWeight:600, color:"#52525b", marginTop:3 }}>{d.v}</div></div>))}
-            </div>
-            <div style={{ display:"flex", gap:6, marginTop:14, paddingTop:12, borderTop:"1px solid #141416" }}>
-              <button onClick={()=>onUpdate(c.id,{status:c.status==="active"?"off":"active"})} style={{ flex:1, height:36, background:"transparent", border:"1px solid #1e1e22", color:"#3f3f46", fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>{c.status==="active"?"Pause":"Activate"}</button>
-              <button onClick={()=>onDelete(c.id)} style={{ flex:1, height:36, background:"transparent", border:"1px solid #7f1d1d", color:"#ef4444", fontSize:10, fontFamily:"'JetBrains Mono',monospace", cursor:"pointer" }}>Remove</button>
-            </div>
-          </div>
-        ))}
-      </div>
+      {compounds.length === 0 ? (
+        <div style={{ textAlign:"center", padding:60, color:"#27272a", fontSize:12 }}>No compounds yet.</div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {compounds.map(c => <StackCompoundCard key={c.id} c={c} onUpdate={onUpdate} onDelete={onDelete} />)}
+        </div>
+      )}
     </div>
   );
 }

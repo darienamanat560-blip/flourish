@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
 
+export const maxDuration = 60;
+
 // ══════════════════════════════════════════════════════════════
 // POST /api/onboarding/generate
 //
@@ -123,12 +125,8 @@ export async function POST(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     // Always return something — onboarding shouldn't fail hard
-    try {
-      const body = await request.json();
-      return NextResponse.json(fallbackProtocol(body));
-    } catch {
-      return NextResponse.json({ error: "Failed" }, { status: 500 });
-    }
+    // (body was already parsed above, can't re-read it here)
+    return NextResponse.json(fallbackProtocol({}));
   }
 }
 
